@@ -17,17 +17,20 @@ rm -f /etc/systemd/system/lindows-live-session-init.service \
 rm -rf /etc/lightdm /etc/systemd/system/lightdm.service.d
 rm -f /etc/xdg/autostart/lindows-desktop-trust.desktop
 # The Live account is created at boot and must never be selected should its
-# passwd entry happen to be visible while Calamares runs.  A Calamares-created
-# normal user is the final eligible account in the target passwd database.
+# passwd entry happen to be visible while Calamares runs. Clear the image's
+# Live session file first, then require the account created by Calamares.
+rm -f /etc/lindows/session-user
 human_accounts=$(awk -F: '$3 >= 1000 && $3 < 60000 && $1 != "nobody" && $1 != "user" && $1 != "live" {print $1}' /etc/passwd)
 installed_account=$(printf '%s\n' "$human_accounts" | sed '/^$/d' | tail -n1)
-if [ -n "$installed_account" ]; then
-    install -Dm644 /dev/stdin /etc/lindows/session-user <<EOF
+if [ -z "$installed_account" ]; then
+    echo 'Lindows: Calamares did not create an installed session account' >&2
+    exit 1
+fi
+install -Dm644 /dev/stdin /etc/lindows/session-user <<EOF
 $installed_account
 EOF
-    if command -v systemctl >/dev/null 2>&1; then
-        systemctl enable lindows-elevende-display.service >/dev/null 2>&1 || true
-    fi
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl enable lindows-elevende-display.service >/dev/null 2>&1 || true
 fi
 
 # Installed systems must not keep the Live-only installer entry.
