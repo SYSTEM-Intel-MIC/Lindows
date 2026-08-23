@@ -62,10 +62,22 @@ done
 }
 
 # Xorg owns VT7, but a system service does not automatically make that VT
-# active. Debian's chvt accepts only a VT number; this service is attached to
-# the system console, so the request activates Xorg's VT7 globally.
+# active. Record every request in the journal: Live console initialization can
+# briefly select another VT after Xorg first becomes ready.
+activate_x_vt() {
+    local phase="$1" before after result
+    before="$(cat /sys/class/tty/tty0/active 2>/dev/null || printf 'unknown')"
+    if /usr/bin/chvt 7; then
+        result=ok
+    else
+        result=failed
+    fi
+    after="$(cat /sys/class/tty/tty0/active 2>/dev/null || printf 'unknown')"
+    logger -t lindows-elevende-display "VT7 activation ${phase}: ${before} -> ${after} (${result})"
+}
+
 if command -v chvt >/dev/null 2>&1; then
-    chvt 7 || true
+    activate_x_vt xorg-ready
 fi
 
 LIVE_FLAG=0
@@ -80,14 +92,18 @@ runuser -u "$USER_NAME" -- env \
 SESSION_PID=$!
 
 # live-config and virtual-console initialization can still activate a text VT
-# immediately after Xorg first becomes ready. Re-assert the graphical VT only
-# once the user session has begun, then once more after its first startup burst.
-# This is deliberately performed by the root display service, never by ElevenDE.
+# after Xorg first becomes ready. Re-assert the graphical VT through the
+# complete bounded startup burst. This remains a root display-service action,
+# never an ElevenDE or Live-user privilege.
 if command -v chvt >/dev/null 2>&1; then
     sleep 1
-    chvt 7 || true
+    activate_x_vt session-started
     sleep 3
-    chvt 7 || true
+    activate_x_vt session-initialized
+    sleep 8
+    activate_x_vt live-config-settled
+    sleep 15
+    activate_x_vt desktop-stable
 fi
 
 wait "$SESSION_PID"
