@@ -9,13 +9,15 @@ Before=graphical.target
 
 [Service]
 Type=simple
-TTYPath=/dev/tty7
-TTYReset=yes
-TTYVHangup=yes
-TTYVTDisallocate=yes
+# Keep the service attached to the boot console. Xorg itself owns VT7;
+# this lets the root service use chvt to activate that VT globally.
+TTYPath=/dev/console
+TTYReset=no
+TTYVHangup=no
+TTYVTDisallocate=no
 StandardInput=tty
-StandardOutput=journal+console
-StandardError=journal+console
+StandardOutput=journal
+StandardError=journal
 ExecStart=/usr/local/sbin/lindows-elevende-display
 Restart=on-failure
 RestartSec=2

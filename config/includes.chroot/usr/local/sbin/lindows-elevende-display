@@ -62,10 +62,10 @@ done
 }
 
 # Xorg owns VT7, but a system service does not automatically make that VT
-# active. Explicitly address /dev/console: the service itself is attached to
-# tty7, so an unqualified chvt can otherwise become a no-op on its own VT.
+# active. Debian's chvt accepts only a VT number; this service is attached to
+# the system console, so the request activates Xorg's VT7 globally.
 if command -v chvt >/dev/null 2>&1; then
-    chvt -C /dev/console 7 || true
+    chvt 7 || true
 fi
 
 LIVE_FLAG=0
@@ -85,9 +85,9 @@ SESSION_PID=$!
 # This is deliberately performed by the root display service, never by ElevenDE.
 if command -v chvt >/dev/null 2>&1; then
     sleep 1
-    chvt -C /dev/console 7 || true
+    chvt 7 || true
     sleep 3
-    chvt -C /dev/console 7 || true
+    chvt 7 || true
 fi
 
 wait "$SESSION_PID"
