@@ -83,6 +83,7 @@ cat_image_file() {
 # Calamares unpackfs must contain these executables and functional modules.
 require_path 'usr/bin/unsquashfs'
 require_path 'usr/bin/rsync'
+require_path 'usr/bin/chvt'
 require_path 'etc/calamares/branding/lindows/show.qml'
 require_path 'etc/calamares/branding/lindows/stylesheet.qss'
 require_path 'etc/calamares/modules/lindows-postinstall.conf'

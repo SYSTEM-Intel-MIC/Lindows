@@ -18,6 +18,7 @@ firmware-intel-sound
 xorg
 xinit
 xauth
+kbd
 x11-xserver-utils
 x11-utils
 openbox
