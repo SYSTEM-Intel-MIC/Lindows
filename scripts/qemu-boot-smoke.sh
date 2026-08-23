@@ -12,12 +12,20 @@ usage() {
 [ "$#" -ge 2 ] || usage
 ISO="$1"
 MODE="$2"
-SECONDS="${3:-75}"
-RENDER_WAIT="${LINDOWS_QEMU_RENDER_WAIT:-55}"
+SECONDS="${3:-170}"
+RENDER_WAIT="${LINDOWS_QEMU_RENDER_WAIT:-120}"
+MONITOR_WAIT=20
+BOOT_MENU_WAIT=8
+CAPTURE_GRACE=10
+MIN_RUNTIME=$((MONITOR_WAIT + BOOT_MENU_WAIT + RENDER_WAIT + CAPTURE_GRACE))
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 VISUAL_VALIDATOR="$SCRIPT_DIR/validate-qemu-visual-frame.py"
 [ -s "$ISO" ] || { echo "ISO is missing or empty: $ISO" >&2; exit 1; }
 case "$MODE" in bios|uefi) ;; *) usage ;; esac
+if [ "$SECONDS" -lt "$MIN_RUNTIME" ]; then
+    echo "QEMU timeout ${SECONDS}s is shorter than the required ${MIN_RUNTIME}s startup/capture budget" >&2
+    exit 2
+fi
 for command in qemu-system-x86_64 timeout socat python3; do
     command -v "$command" >/dev/null 2>&1 || {
         echo "required command is unavailable: $command" >&2
@@ -58,7 +66,7 @@ set -e
 
 # Give firmware/ISOLINUX a bounded opportunity to render, then confirm the
 # default Live entry.  This avoids treating a static boot menu as a success.
-for _ in $(seq 1 20); do
+for _ in $(seq 1 "$MONITOR_WAIT"); do
     [ -S "$MONITOR" ] && break
     sleep 1
 done
@@ -67,15 +75,16 @@ done
     echo "QEMU $MODE did not expose a monitor socket" >&2
     exit 1
 }
-sleep 8
+sleep "$BOOT_MENU_WAIT"
 printf 'sendkey ret\n' | socat - UNIX-CONNECT:"$MONITOR" >/dev/null 2>&1 || {
     cat "$LOG" >&2 || true
     echo "QEMU $MODE could not select the default Live entry" >&2
     exit 1
 }
 # Preserve a frame only after the bounded Live/Xorg/session startup window.
-# This is deliberately later than the boot menu check because ElevenDE starts
-# after the Live environment has created its user and consoles.
+# Under TCG the native C/Xlib shell may still be drawing after Xorg itself has
+# exposed a gray root window. Keep this window long enough to distinguish that
+# intermediate state from a usable rendered ElevenDE desktop.
 sleep "$RENDER_WAIT"
 printf 'screendump %s\n' "$FRAME" | socat - UNIX-CONNECT:"$MONITOR" >/dev/null 2>&1 || true
 

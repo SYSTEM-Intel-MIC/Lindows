@@ -59,21 +59,36 @@ def main() -> int:
     sample_step = 8
     sampled = 0
     nonblack = 0
+    sampled_colors: set[tuple[int, int, int]] = set()
     for offset in range(0, len(pixels), 3 * sample_step):
         red, green, blue = pixels[offset : offset + 3]
         sampled += 1
+        sampled_colors.add((red, green, blue))
         if red > 8 or green > 8 or blue > 8:
             nonblack += 1
 
     ratio = nonblack / sampled if sampled else 0.0
+    color_count = len(sampled_colors)
     print(
         f"QEMU visual frame {width}x{height}: "
-        f"non-black samples {nonblack}/{sampled} ({ratio:.2%})"
+        f"non-black samples {nonblack}/{sampled} ({ratio:.2%}); "
+        f"sampled colors {color_count}"
     )
     if ratio < 0.12:
         print(
             "QEMU frame is effectively blank or a sparse text console; "
             "the Live graphical desktop was not visibly rendered",
+            file=sys.stderr,
+        )
+        return 1
+    # A running X server's untouched root window is often a uniform gray. It is
+    # non-black, but it is not an ElevenDE desktop. Text consoles also expose
+    # only a tiny palette. A rendered desktop, login or installer scene has
+    # substantial color variation after the same sparse sampling.
+    if color_count < 32:
+        print(
+            "QEMU frame has too little color variation; it is a uniform X root "
+            "window or sparse console rather than a rendered Live desktop",
             file=sys.stderr,
         )
         return 1

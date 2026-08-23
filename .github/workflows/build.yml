@@ -235,8 +235,8 @@ jobs:
         run: |
           set -euxo pipefail
           chmod 755 scripts/qemu-boot-smoke.sh scripts/validate-lindows-live-image.sh
-          bash scripts/qemu-boot-smoke.sh "${{ steps.iso.outputs.iso_path }}" bios 75
-          bash scripts/qemu-boot-smoke.sh "${{ steps.iso.outputs.iso_path }}" uefi 75
+          bash scripts/qemu-boot-smoke.sh "${{ steps.iso.outputs.iso_path }}" bios 170
+          bash scripts/qemu-boot-smoke.sh "${{ steps.iso.outputs.iso_path }}" uefi 170
 
       - name: Upload QEMU visual diagnostics on completion or failure
         if: always()
