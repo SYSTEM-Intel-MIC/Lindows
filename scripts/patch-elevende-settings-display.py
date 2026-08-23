@@ -51,12 +51,10 @@ new = '''        if (m_resCombo->count() == 0)
         }
         const QStringList args = { QStringLiteral("--output"), m_output,
                                    QStringLiteral("--mode"), mode };
-        /* Wait until RandR has committed the mode before asking ElevenDE to
-         * query the new geometry; the old detached commands raced each other. */
+        /* Wait for RandR to commit. ElevenDE's native shell observes root
+         * geometry changes and also polls live DisplayWidth/DisplayHeight, so
+         * no Lindows-only signal handler is needed (or allowed to drift). */
         QProcess::execute(QStringLiteral("xrandr"), args);
-        QProcess::startDetached(QStringLiteral("pkill"),
-                                { QStringLiteral("-USR1"), QStringLiteral("-x"),
-                                  QStringLiteral("elevende-shell") });
     }
 '''
 if old not in text:

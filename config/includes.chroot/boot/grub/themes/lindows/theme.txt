@@ -6,7 +6,7 @@ desktop-color: "#06152f"
 title-text: "Lindows 2.0"
 title-color: "#eaf6ff"
 
-boot_menu {
++ boot_menu {
   left = 8%
   top = 34%
   width = 45%

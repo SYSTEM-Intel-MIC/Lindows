@@ -34,5 +34,18 @@ if "LINDOWS-SESSION-POLICY" in text:
     raise SystemExit("Lindows session policy is already present")
 if old not in text:
     raise SystemExit("ElevenDE login gate marker was not found")
-path.write_text(text.replace(old, new, 1), encoding="utf-8")
-print("patched ElevenDE session for Live bypass and installed native login")
+text = text.replace(old, new, 1)
+old_locale = '''export LANG=C.UTF-8
+export LC_ALL=C.UTF-8
+'''
+new_locale = '''# Lindows is Chinese-first.  Keep desktop entry localization and application
+# labels coherent with the image locale instead of forcing the C locale.
+export LANG=zh_CN.UTF-8
+export LC_ALL=zh_CN.UTF-8
+export LANGUAGE=zh_CN:zh
+'''
+if old_locale not in text:
+    raise SystemExit("ElevenDE session locale marker was not found")
+text = text.replace(old_locale, new_locale, 1)
+path.write_text(text, encoding="utf-8")
+print("patched ElevenDE session for Live bypass, native login and zh_CN locale")

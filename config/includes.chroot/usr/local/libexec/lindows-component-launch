@@ -13,6 +13,11 @@ export GDK_BACKEND=x11
 export GTK_CSD=0
 export MOZ_GTK_TITLEBAR_DECORATION=system
 export QT_QPA_PLATFORM=xcb
-# The global GTK CSS uses the ElevenDE light/accent palette for stock controls.
-export GTK_THEME="${GTK_THEME:-Adwaita}"
+# Lindows 2.0 is light-only.  Do not inherit a dark portal/theme preference
+# into third-party GTK or Qt apps, because that yields black surfaces beside
+# ElevenDE's fixed Windows 11 light palette.
+export GTK_THEME=Adwaita:light
+export GTK_APPLICATION_PREFER_DARK_THEME=0
+export QT_STYLE_OVERRIDE=Fusion
+export QT_QPA_PLATFORMTHEME=""
 exec "$@"

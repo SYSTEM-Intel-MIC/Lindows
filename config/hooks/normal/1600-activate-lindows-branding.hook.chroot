@@ -81,11 +81,14 @@ if ! grep -q '^slideshow:' "$BRANDING/branding.desc"; then
     printf '\nslideshow: "show.qml"\nslideshowAPI: 2\n' >> "$BRANDING/branding.desc"
 fi
 
-# The default ElevenDE fallback makes the brand wallpaper available even if a
-# Live-user skeleton is not copied by a particular live-config profile.
-install -Dm644 /usr/share/lindows/branding/lindows-aurora-wallpaper.png \
-    /usr/local/share/elevende-shell/wallpaper.png
-install -Dm644 /usr/share/lindows/branding/lindows-aurora-wallpaper.png \
+# Keep ElevenDE 3.5.1's own light default wallpaper.  The older Lindows 1.0
+# Aurora asset remains available only for the separately branded GRUB theme;
+# it must never overwrite the desktop default or a new user's wallpaper.
+[ -s /usr/local/share/elevende-shell/wallpaper.png ] || {
+    echo "Lindows: ElevenDE default wallpaper is missing" >&2
+    exit 1
+}
+install -Dm644 /usr/local/share/elevende-shell/wallpaper.png \
     /etc/skel/.local/share/elevende/wallpaper.png
 
 # Use the Lindows mark as a real ElevenDE theme icon. ElevenDE resolves desktop
@@ -111,7 +114,7 @@ EOF
 for dir in /usr/share/applications /etc/xdg/autostart /etc/skel/Desktop; do
     [ -d "$dir" ] || continue
     find "$dir" -maxdepth 1 -type f -name '*.desktop' -print0 2>/dev/null | while IFS= read -r -d '' entry; do
-        if grep -qiE '(^Name(\[[^]]+\])?=.*(Install Debian|Debian Installer))|debian-installer-launcher|debian-installer.desktop' "$entry" 2>/dev/null; then
+        if grep -qiE '(^Name(\[[^]]+\])?=.*(Install Debian|Debian Installer|Install System|安装系统))|debian-installer-launcher|debian-installer.desktop|install-system.desktop' "$entry" 2>/dev/null; then
             rm -f "$entry"
         fi
     done

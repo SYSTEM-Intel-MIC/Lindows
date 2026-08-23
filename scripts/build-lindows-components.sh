@@ -99,6 +99,8 @@ python3 "$ROOT/scripts/patch-elevende-desktop-launcher.py" "$ELEV_SRC/shell/main
 python3 "$ROOT/scripts/patch-elevende-shell-display.py" "$ELEV_SRC/shell/main.c"
 python3 "$ROOT/scripts/patch-elevende-settings-display.py" "$ELEV_SRC/apps/settings/main.cpp"
 python3 "$ROOT/scripts/patch-elevende-lindows-component-icons.py" "$ELEV_SRC/shell/main.c"
+python3 "$ROOT/scripts/patch-elevende-lindows-menu.py" "$ELEV_SRC/shell/main.c"
+python3 "$ROOT/scripts/patch-elevende-lindows-actions.py" "$ELEV_SRC/shell/main.c" "$ELEV_SRC/wm/sas-config.json"
 python3 "$ROOT/scripts/patch-elevende-session-policy.py" "$ELEV_SRC/session/elevende-session"
 python3 "$ROOT/scripts/patch-elevende-icon-overlay-staging.py" "$ELEV_SRC/build-deb.sh"
 [ -d "$ROOT/packages/elevende/icons" ] || die "Lindows Windows 11 icon overlay is missing"
@@ -158,25 +160,40 @@ meson setup "$BSOD/build" "$BSOD" --buildtype=release
 meson compile -C "$BSOD/build"
 STAGE="$WORK/pkg-lindows-bsod"
 install -Dm755 "$BSOD/build/bsod" "$STAGE/usr/local/sbin/lindows-bsod"
+# The upstream renderer directly seizes a VT/DRM master and therefore requires
+# root.  Lindows exposes a safe X11 demonstration instead: it never reboots,
+# never changes the active VT and Escape always restores the desktop.
+install -Dm755 /dev/stdin "$STAGE/usr/lib/lindows-bsod-preview.py" <<'PY'
+#!/usr/bin/env python3
+import tkinter as tk
+root = tk.Tk()
+root.configure(bg="#0078d7")
+root.attributes("-fullscreen", True)
+root.title("Lindows Blue Screen Demo")
+frame = tk.Frame(root, bg="#0078d7")
+frame.place(relx=0.5, rely=0.47, anchor="center")
+tk.Label(frame, text=":(", fg="white", bg="#0078d7", font=("Sans", 72)).pack(anchor="w")
+tk.Label(frame, text="Lindows 蓝屏演示\n这是一个安全预览，不会重启或修改系统。\n按 Esc 返回桌面。", fg="white", bg="#0078d7", justify="left", font=("Sans", 20)).pack(anchor="w", pady=(18, 0))
+root.bind("<Escape>", lambda _event: root.destroy())
+root.mainloop()
+PY
 install -Dm755 /dev/stdin "$STAGE/usr/local/bin/lindows-bsod-demo" <<'LAUNCH'
 #!/bin/sh
-# The Lindows menu entry is deliberately a reversible demonstration.
-# --restore overrides upstream's default reboot behavior after the animation.
-exec /usr/local/sbin/lindows-bsod --restore --show "Lindows demonstration"
+exec python3 /usr/lib/lindows-bsod-preview.py "$@"
 LAUNCH
 install -Dm644 /dev/stdin "$STAGE/usr/share/applications/lindows-bsod.desktop" <<'DESKTOP'
 [Desktop Entry]
 Type=Application
 Name=Lindows Blue Screen Demo
 Name[zh_CN]=Lindows 蓝屏演示
-Comment=Show a temporary blue-screen demonstration and restore the desktop
-Exec=pkexec /usr/local/bin/lindows-bsod-demo
-Icon=dialog-warning
+Comment=Safe blue-screen demonstration; Escape returns to the desktop
+Exec=lindows-bsod-demo
+Icon=lindows-bsod
 Terminal=false
 Categories=System;
 DESKTOP
 install -Dm644 "$BSOD/LICENSE" "$STAGE/usr/share/doc/lindows-bsod/copyright"
-make_deb "lindows-bsod" "1.0.2+lindows1" "libdrm2, libfreetype6, libfontconfig1, libsystemd0" "$STAGE" "Lindows blue-screen demonstration tool"
+make_deb "lindows-bsod" "1.0.3+lindows2" "python3, python3-tk" "$STAGE" "Safe reversible Lindows blue-screen demonstration"
 
 log "building Device Manager package"
 DEVMGR="$WORK/devmgr"
@@ -210,6 +227,7 @@ make_deb "lindows-device-manager" "0.1.0+lindows1" "libgl1, libx11-6, libxrandr2
 log "building Lindows Store from locked source"
 STORE="$WORK/linux-store"
 source_locked linux-store "$STORE"
+python3 "$ROOT/scripts/patch-lindows-component-sources.py" store "$STORE"
 [ -f "$STORE/native/linux-store" ] || die "Linux Store launcher is missing"
 [ -f "$STORE/native/linux_store.py" ] || die "Linux Store Python source is missing"
 [ -d "$STORE/native/assets" ] || die "Linux Store visual assets are missing"

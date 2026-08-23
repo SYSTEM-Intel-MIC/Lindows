@@ -56,10 +56,34 @@ write_component_entry lindows-winsat.desktop "Windows Experience Index" "Windows
 write_component_entry lindows-update-preview.desktop "Windows Update Preview" "Windows 更新预览" lindows-update-preview "$ADAPTER lindows-update-preview" "Settings;System;"
 write_component_entry lindows-winver.desktop "About Lindows" "关于 Lindows" lindows-winver "$ADAPTER winver" "System;Settings;"
 write_component_entry feedbackhub.desktop "Feedback Hub" "反馈中心" feedbackhub "$ADAPTER feedbackhub" "Utility;"
-# The BSOD demonstration needs polkit for privileged DRM access; its program
-# restores the desktop and therefore intentionally bypasses the user launcher.
-write_component_entry lindows-bsod.desktop "Lindows Blue Screen Demo" "Lindows 蓝屏演示" lindows-bsod "pkexec /usr/local/bin/lindows-bsod-demo" "System;"
-rm -f /usr/share/applications/lindows-sticky-keys.desktop
+# The Lindows demo is an unprivileged X11 preview; Escape returns to ElevenDE.
+write_component_entry lindows-bsod.desktop "Lindows Blue Screen Demo" "Lindows 蓝屏演示" lindows-bsod "$ADAPTER /usr/local/bin/lindows-bsod-demo" "System;"
+# The local entries above are the single Lindows source of truth.  Remove
+# package-provided alternatives whose different Exec values would otherwise
+# bypass Shell de-duplication and appear as duplicate All Apps icons.
+rm -f /usr/share/applications/lindows-sticky-keys.desktop \
+      /usr/share/applications/lindows-control.desktop \
+      /usr/share/applications/lindows-store.desktop \
+      /usr/share/applications/lindows-defender.desktop \
+      /usr/share/applications/lindows-uac-preview.desktop \
+      /usr/share/applications/lindows-update-preview.desktop \
+      /usr/share/applications/lindows-widgets.desktop \
+      /usr/share/applications/taskschd.desktop \
+      /usr/share/applications/widget-panel.desktop \
+      /usr/share/applications/activate-linux.desktop
+
+# Widgets are a Lindows desktop surface, not a utility the user must manually
+# launch once before its own per-user preference is written.
+install -Dm644 /dev/stdin /etc/xdg/autostart/lindows-widgets.desktop <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Lindows Widgets
+Name[zh_CN]=Windows 小组件
+Exec=/usr/local/libexec/lindows-component-launch /usr/bin/lindows-widgets
+OnlyShowIn=ElevenDE;
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+EOF
 
 # Packages are installed; keeping their archives only increases the ISO.
 rm -rf "$PKG_DIR"

@@ -1,0 +1,11 @@
+#!/bin/sh
+# Lindows Start-menu power bridge.  The command is intentionally allow-listed:
+# no shell evaluation, no sudo, no PAM mutation and no arbitrary elevation.
+set -eu
+case "${1:-}" in
+  suspend)  action=suspend ;;
+  poweroff) action=poweroff ;;
+  reboot)   action=reboot ;;
+  *) exit 64 ;;
+esac
+exec loginctl "$action"
