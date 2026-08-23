@@ -91,8 +91,8 @@ runuser -u "$USER_NAME" -- env \
     /usr/local/bin/elevende-session &
 SESSION_PID=$!
 
-# live-config and virtual-console initialization can still activate a text VT
-# after Xorg first becomes ready. Re-assert the graphical VT through the
+# Virtual-console initialization can still activate a text VT after Xorg first
+# becomes ready. Re-assert the graphical VT through the
 # complete bounded startup burst. This remains a root display-service action,
 # never an ElevenDE or Live-user privilege.
 if command -v chvt >/dev/null 2>&1; then
@@ -101,7 +101,7 @@ if command -v chvt >/dev/null 2>&1; then
     sleep 3
     activate_x_vt session-initialized
     sleep 8
-    activate_x_vt live-config-settled
+    activate_x_vt console-settled
     sleep 15
     activate_x_vt desktop-stable
 fi

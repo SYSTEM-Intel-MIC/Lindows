@@ -1,7 +1,8 @@
 # Lindows core: Debian Bookworm AMD64, minimal X11 and ElevenDE session
+# The Live user and graphical session are initialized by the Lindows-native
+# services below, rather than by live-config (which blocks basic.target while
+# executing generic late-userspace profiles on every boot).
 live-boot
-live-config
-live-config-systemd
 systemd-sysv
 libpam-systemd
 linux-image-amd64
