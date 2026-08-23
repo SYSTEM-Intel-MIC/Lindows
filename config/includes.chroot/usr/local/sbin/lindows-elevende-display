@@ -61,6 +61,13 @@ done
     exit 1
 }
 
+# Xorg owns VT7, but a system service does not automatically make that VT
+# active.  Switch to it explicitly only after :0 is ready so Live users land
+# on the actual ElevenDE desktop rather than a black inactive-VT frame or TTY.
+if command -v chvt >/dev/null 2>&1; then
+    chvt 7 || true
+fi
+
 LIVE_FLAG=0
 [ -d /run/live ] && LIVE_FLAG=1
 runuser -u "$USER_NAME" -- env \
