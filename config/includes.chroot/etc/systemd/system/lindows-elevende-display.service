@@ -9,12 +9,13 @@ Before=graphical.target
 
 [Service]
 Type=simple
-# Keep the service attached to the boot console. Xorg itself owns VT7;
-# this lets the root service use chvt to activate that VT globally.
-TTYPath=/dev/console
-TTYReset=no
-TTYVHangup=no
-TTYVTDisallocate=no
+# Keep Xorg and the display service on their dedicated VT. The service is
+# intentionally separate from the boot console so console hand-off cannot send
+# it SIGHUP during Live startup.
+TTYPath=/dev/tty7
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
 StandardInput=tty
 StandardOutput=journal
 StandardError=journal
