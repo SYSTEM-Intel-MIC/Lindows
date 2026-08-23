@@ -62,10 +62,10 @@ done
 }
 
 # Xorg owns VT7, but a system service does not automatically make that VT
-# active.  Switch to it explicitly only after :0 is ready so Live users land
-# on the actual ElevenDE desktop rather than a black inactive-VT frame or TTY.
+# active. Explicitly address /dev/console: the service itself is attached to
+# tty7, so an unqualified chvt can otherwise become a no-op on its own VT.
 if command -v chvt >/dev/null 2>&1; then
-    chvt 7 || true
+    chvt -C /dev/console 7 || true
 fi
 
 LIVE_FLAG=0
@@ -85,9 +85,9 @@ SESSION_PID=$!
 # This is deliberately performed by the root display service, never by ElevenDE.
 if command -v chvt >/dev/null 2>&1; then
     sleep 1
-    chvt 7 || true
+    chvt -C /dev/console 7 || true
     sleep 3
-    chvt 7 || true
+    chvt -C /dev/console 7 || true
 fi
 
 wait "$SESSION_PID"
