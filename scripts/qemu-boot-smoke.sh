@@ -13,9 +13,12 @@ usage() {
 ISO="$1"
 MODE="$2"
 SECONDS="${3:-75}"
+RENDER_WAIT="${LINDOWS_QEMU_RENDER_WAIT:-55}"
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+VISUAL_VALIDATOR="$SCRIPT_DIR/validate-qemu-visual-frame.py"
 [ -s "$ISO" ] || { echo "ISO is missing or empty: $ISO" >&2; exit 1; }
 case "$MODE" in bios|uefi) ;; *) usage ;; esac
-for command in qemu-system-x86_64 timeout socat; do
+for command in qemu-system-x86_64 timeout socat python3; do
     command -v "$command" >/dev/null 2>&1 || {
         echo "required command is unavailable: $command" >&2
         exit 1
@@ -30,8 +33,11 @@ FRAME="${LINDOWS_QEMU_SMOKE_FRAME:-${ISO}.${MODE}.ppm}"
 LOG="$WORK/qemu.log"
 rm -f "$FRAME"
 
+# virtio-vga is the supported automated graphics test adapter. Standard VGA
+# is retained as a documented compatibility follow-up rather than being used
+# to infer whether the ElevenDE session has visibly rendered.
 QEMU=(qemu-system-x86_64 -m 2048 -smp 2 -accel tcg -no-reboot -no-shutdown \
-      -display none -monitor "unix:${MONITOR},server=on,wait=off" -serial none \
+      -vga virtio -display none -monitor "unix:${MONITOR},server=on,wait=off" -serial none \
       -cdrom "$ISO" -boot d)
 if [ "$MODE" = uefi ]; then
     if [ -n "${OVMF_CODE:-}" ]; then
@@ -67,8 +73,10 @@ printf 'sendkey ret\n' | socat - UNIX-CONNECT:"$MONITOR" >/dev/null 2>&1 || {
     echo "QEMU $MODE could not select the default Live entry" >&2
     exit 1
 }
-# Preserve a frame after the kernel/initramfs window for manual and CI review.
-sleep 20
+# Preserve a frame only after the bounded Live/Xorg/session startup window.
+# This is deliberately later than the boot menu check because ElevenDE starts
+# after the Live environment has created its user and consoles.
+sleep "$RENDER_WAIT"
 printf 'screendump %s\n' "$FRAME" | socat - UNIX-CONNECT:"$MONITOR" >/dev/null 2>&1 || true
 
 set +e
@@ -80,6 +88,7 @@ cat "$LOG"
     echo "QEMU $MODE did not produce a post-selection graphical frame" >&2
     exit 1
 }
+python3 "$VISUAL_VALIDATOR" "$FRAME"
 # Timeout means the guest remained alive past the bounded post-selection boot
 # interval; immediate exits or host-visible firmware errors fail the job.
 if [ "$rc" -ne 124 ]; then
