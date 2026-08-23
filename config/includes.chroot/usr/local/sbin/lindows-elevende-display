@@ -76,4 +76,18 @@ runuser -u "$USER_NAME" -- env \
     XDG_VTNR=7 XDG_SEAT=seat0 XDG_SESSION_TYPE=x11 \
     XDG_CURRENT_DESKTOP=ElevenDE XDG_SESSION_DESKTOP=ElevenDE \
     LINDOWS_LIVE_SESSION="$LIVE_FLAG" \
-    /usr/local/bin/elevende-session
+    /usr/local/bin/elevende-session &
+SESSION_PID=$!
+
+# live-config and virtual-console initialization can still activate a text VT
+# immediately after Xorg first becomes ready. Re-assert the graphical VT only
+# once the user session has begun, then once more after its first startup burst.
+# This is deliberately performed by the root display service, never by ElevenDE.
+if command -v chvt >/dev/null 2>&1; then
+    sleep 1
+    chvt 7 || true
+    sleep 3
+    chvt 7 || true
+fi
+
+wait "$SESSION_PID"
