@@ -61,7 +61,8 @@ EOF
 fi
 if ! grep -q '^[[:space:]]*-[[:space:]]*shellprocess@lindows-postinstall[[:space:]]*$' "$SETTINGS"; then
     awk '
-        !done && /^[[:space:]]*-[[:space:]]*users[[:space:]]*$/ {
+        /^[[:space:]]*-[[:space:]]*exec:[[:space:]]*$/ { in_exec=1 }
+        !done && in_exec && /^[[:space:]]*-[[:space:]]*users[[:space:]]*$/ {
             indent=$0; sub(/[^[:space:]].*/, "", indent)
             print $0
             print indent "- shellprocess@lindows-postinstall"
