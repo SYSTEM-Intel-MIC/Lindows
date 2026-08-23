@@ -15,7 +15,14 @@ export LANG=zh_CN.UTF-8
 export LANGUAGE=zh_CN:zh
 export LC_ALL=zh_CN.UTF-8
 export DISPLAY="${DISPLAY:-:0}"
-if [ -z "${XAUTHORITY:-}" ] && [ -f "/home/user/.Xauthority" ]; then
-    export XAUTHORITY=/home/user/.Xauthority
+# The native ElevenDE display service deliberately stores its cookie outside
+# root-owned /run to avoid xauth lock contention. Prefer that Live cookie and
+# only fall back to a conventional Xauthority file for compatibility.
+if [ -z "${XAUTHORITY:-}" ]; then
+    if [ -f "/home/user/.Xauthority-lindows" ]; then
+        export XAUTHORITY=/home/user/.Xauthority-lindows
+    elif [ -f "/home/user/.Xauthority" ]; then
+        export XAUTHORITY=/home/user/.Xauthority
+    fi
 fi
 exec /usr/bin/sudo -n -E /usr/bin/calamares "$@"
