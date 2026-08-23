@@ -1,9 +1,12 @@
 [Unit]
 Description=Lindows ElevenDE native X11 display and session
 Documentation=file:///usr/share/doc/elevende/README.md
+# The Live desktop must not wait for network-online: NetworkManager may
+# legitimately keep that target pending while DHCP or WLAN probing runs. It is
+# enough for the service manager itself to be available; networking continues
+# asynchronously after ElevenDE becomes visible.
 After=systemd-user-sessions.service systemd-logind.service NetworkManager.service lindows-live-session-init.service
-Wants=network-online.target lindows-live-session-init.service
-After=network-online.target
+Wants=lindows-live-session-init.service
 Conflicts=display-manager.service lightdm.service
 Before=graphical.target
 

@@ -238,6 +238,18 @@ jobs:
           bash scripts/qemu-boot-smoke.sh "${{ steps.iso.outputs.iso_path }}" bios 75
           bash scripts/qemu-boot-smoke.sh "${{ steps.iso.outputs.iso_path }}" uefi 75
 
+      - name: Upload QEMU visual diagnostics on completion or failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lindows-2.0-qemu-visual-diagnostics-${{ github.run_number }}
+          path: |
+            Lindows-2.0-amd64-livecd.iso.bios.ppm
+            Lindows-2.0-amd64-livecd.iso.uefi.ppm
+          if-no-files-found: warn
+          retention-days: 14
+          compression-level: 0
+
       - name: Upload Lindows ISO and verification artifacts
         uses: actions/upload-artifact@v4
         with:
