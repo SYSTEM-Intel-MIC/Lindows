@@ -15,6 +15,14 @@ if command -v systemctl >/dev/null 2>&1; then
     systemctl enable lindows-live-session-init.service >/dev/null 2>&1 || true
     systemctl enable lindows-elevende-display.service >/dev/null 2>&1 || true
 fi
+
+# live-build can install the generic live-config systemd backend independently
+# of the explicit package list. Its oneshot service runs Before=basic.target,
+# yet Lindows initializes its Live user and graphical session through the two
+# native services above. Mask it in the finished Live root so it cannot block
+# the graphical target during DHCP, locale or generic profile processing.
+install -d -m 0755 /etc/systemd/system
+ln -sfn /dev/null /etc/systemd/system/live-config.service
 if [ -e /etc/init.d/lightdm ] || [ -e /usr/sbin/lightdm ]; then
     echo 'Lindows: LightDM is not permitted; use lindows-elevende-display.service' >&2
     exit 1
