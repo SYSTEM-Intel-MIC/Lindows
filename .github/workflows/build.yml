@@ -146,9 +146,12 @@ jobs:
           EOF
           sudo chmod 755 config/hooks/*.chroot \
             config/includes.chroot/usr/local/bin/lindows-installer \
+            config/includes.chroot/usr/local/bin/lindows-power-action \
+            config/includes.chroot/usr/local/bin/lindows-logout \
             config/includes.chroot/usr/local/sbin/lindows-live-session-init \
             config/includes.chroot/usr/local/sbin/lindows-elevende-display \
-            config/includes.chroot/usr/local/libexec/lindows-component-launch
+            config/includes.chroot/usr/local/libexec/lindows-component-launch \
+            config/includes.chroot/usr/local/libexec/lindows-privileged-action
           # Keep isolinux.bin and every COM32 runtime module from the same
           # syslinux package. In particular, isolinux.cfg -> vesamenu.c32
           # requires ldlinux.c32, libcom32.c32 and libutil.c32 at boot time.
