@@ -51,11 +51,11 @@ insmod linux
 insmod normal
 search --no-floppy --file --set=root /live/vmlinuz
 menuentry "Start Lindows Live" {
-  linux /live/vmlinuz boot=live config components splash
+  linux /live/vmlinuz boot=live config components
   initrd /live/initrd.img
 }
 menuentry "Lindows Live (safe graphics)" {
-  linux /live/vmlinuz boot=live config components splash nomodeset
+  linux /live/vmlinuz boot=live config components nomodeset
   initrd /live/initrd.img
 }
 EOF

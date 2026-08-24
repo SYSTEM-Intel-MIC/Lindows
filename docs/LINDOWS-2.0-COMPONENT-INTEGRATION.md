@@ -45,7 +45,7 @@ Lindows 不安装 LightDM。`lindows-elevende-display.service` 通过 Xorg/xinit
 | Activate Lindows | `203ee66e` / GPL-3.0 | `lindows-activation-watermark` C package。 | 视觉水印；不规避或改变任何软件许可。 |
 | Lindows Control | `2268136b` / MIT | `lindows-control`；Rust 1.95、固定 Cargo.lock。 | Control Panel 图标。 |
 | Troubleshooting | `124a743d` / MIT | `lindows-troubleshooting`；构建期 PySide6 → PyQt5 兼容导入。 | 信息图标。 |
-| UAC Preview | `288ac83a` / MIT | `lindows-uac-preview`；构建期禁用超时自动批准。 | 安全图标；不安装 PAM 模块、不改 sudo 或 `/etc/pam.d`。 |
+| UAC Preview | `288ac83a` / MIT | `lindows-uac-preview`；构建期禁用超时自动批准，并提供 `lindows-sudo` 交互包装器。 | 交互终端先由原生 `/usr/bin/sudo -v` 校验当前用户密码，再显示 UAC 确认；取消或 UI 失败均不执行命令。不安装 PAM 模块、不改 sudo 或 `/etc/pam.d`。 |
 | Lindows Defender | `0dcf5d50` / MIT | `lindows-defender` Python/Tk package。 | Defender 图标；不声明不存在的杀毒能力。 |
 | Sticky Keys | `511364af` / MIT | `lindows-sticky-keys` Python package，覆盖错误的上游 desktop Exec。 | Sticky Notes 图标；用户会话入口。 |
 | Task Scheduler | `86c27361` / LGPL-2.1 | `lindows-task-scheduler`，PyQt5 兼容、`croniter`、polkit。 | Tasks 图标；系统级操作仅走明确授权。 |
@@ -63,7 +63,7 @@ Lindows 不安装 LightDM。`lindows-elevende-display.service` 通过 Xorg/xinit
 
 构建必须通过 package SHA-256、DEB 架构、许可证文档、XDG 入口和 JSON manifest 检查。ISO 还必须通过 squashfs 校验，覆盖 Calamares 的 `shellprocess@lindows-postinstall`、最小 Live sudoers、安装器依赖、无 LightDM、ElevenDE 原生服务、Lindows Store、组件适配器、GTK 主题和 20 个图标别名。QEMU BIOS/UEFI 冒烟是产物上传前的进一步门槛。
 
-UAC、Windows Update 与 BSOD 的上游行为风险不被“仿 Windows”目标豁免：Lindows 分别采取无 PAM 预览、无升级/无重启预览和强制恢复桌面的策略。驱动探测只触发现有 udev/firmware 状态并可查询 `fwupdmgr`，不会静默下载、安装或替换驱动。
+UAC、Windows Update 与 BSOD 的上游行为风险不被“仿 Windows”目标豁免：Lindows 的独立 UAC 预览不授权命令；交互终端通过 `lindows-sudo` 先使用原生 sudo 密码认证、再显示明确 UAC 确认，取消或 UI 失败均不执行命令；Windows Update 仍为无升级/无重启预览，BSOD 仍强制恢复桌面。驱动探测只触发现有 udev/firmware 状态并可查询 `fwupdmgr`，不会静默下载、安装或替换驱动。
 
 ## 参考
 

@@ -179,24 +179,54 @@ STAGE="$WORK/pkg-lindows-uac-preview"
 install -Dm755 "$SRC/uac_ui" "$STAGE/usr/lib/lindows-uac-preview/uac_ui"
 install -Dm755 /dev/stdin "$STAGE/usr/lib/lindows-uac-preview/preview.py" <<'PY'
 #!/usr/bin/env python3
-import getpass, tkinter as tk
+import getpass, sys, tkinter as tk
+result = 1
 root = tk.Tk(); root.title("用户账户控制"); root.geometry("560x330"); root.configure(bg="#ffffff"); root.resizable(False, False)
 tk.Label(root, text="用户账户控制", font=("Sans", 22, "bold"), fg="#202020", bg="#ffffff").pack(anchor="w", padx=32, pady=(28, 8))
 tk.Label(root, text="是否允许此应用对 Lindows 进行更改？", font=("Sans", 15), bg="#ffffff", fg="#202020").pack(anchor="w", padx=32)
-tk.Label(root, text="Lindows 管理操作（安全预览，不会授权命令）\n当前用户：" + getpass.getuser(), font=("Sans", 12), bg="#ffffff", fg="#555555", justify="left").pack(anchor="w", padx=32, pady=20)
+tk.Label(root, text="Lindows 管理操作（已完成系统密码验证，请确认继续）\n当前用户：" + getpass.getuser(), font=("Sans", 12), bg="#ffffff", fg="#555555", justify="left").pack(anchor="w", padx=32, pady=20)
 buttons=tk.Frame(root,bg="#ffffff"); buttons.pack(anchor="e", padx=32, pady=20)
-tk.Button(buttons,text="否",command=root.destroy,bg="#e9edf2",fg="#202020",relief="flat",padx=22,pady=8).pack(side="left",padx=8)
-tk.Button(buttons,text="是（预览）",command=root.destroy,bg="#0f6cbd",fg="white",relief="flat",padx=22,pady=8).pack(side="left")
+def deny():
+    global result
+    result = 1
+    root.destroy()
+def allow():
+    global result
+    result = 0
+    root.destroy()
+tk.Button(buttons,text="否",command=deny,bg="#e9edf2",fg="#202020",relief="flat",padx=22,pady=8).pack(side="left",padx=8)
+tk.Button(buttons,text="是",command=allow,bg="#0f6cbd",fg="white",relief="flat",padx=22,pady=8).pack(side="left")
+root.protocol("WM_DELETE_WINDOW", deny)
 root.mainloop()
+sys.exit(result)
 PY
 install -Dm755 /dev/stdin "$STAGE/usr/bin/lindows-uac-preview" <<'SH'
 #!/bin/sh
-# Preview-only: no PAM module, sudo hook, auto-grant or command authorisation.
+# Standalone confirmation only. It never grants privileges or replaces sudo.
 exec python3 /usr/lib/lindows-uac-preview/preview.py "$@"
+SH
+install -Dm755 /dev/stdin "$STAGE/usr/bin/lindows-sudo" <<'SH'
+#!/bin/sh
+# Lindows user-facing wrapper: standard sudo password authentication first,
+# then an explicit desktop confirmation, then the unchanged system sudo.
+set -eu
+if [ "$#" -eq 0 ]; then
+    exec /usr/bin/sudo
+fi
+/usr/bin/sudo -v
+/usr/bin/lindows-uac-preview --command "$*"
+exec /usr/bin/sudo "$@"
+SH
+install -Dm644 /dev/stdin "$STAGE/etc/profile.d/lindows-admin.sh" <<'SH'
+# Lindows keeps /usr/bin/sudo and PAM unchanged. Interactive terminals use the
+# opt-in wrapper so password verification precedes a visible UAC confirmation.
+if [ -t 0 ] && [ -t 1 ] && [ -x /usr/bin/lindows-sudo ]; then
+    alias sudo='lindows-sudo'
+fi
 SH
 install_desktop "$STAGE" "lindows-uac-preview.desktop" "User Account Control Preview" "用户账户控制预览" "dialog-password" "Settings;Security;"
 install_license "$SRC" "$STAGE" "lindows-uac-preview"
-make_deb "lindows-uac-preview" "1.0.1+lindows3" "python3, python3-tk" "$STAGE" "Non-authorising Lindows UAC preview"
+make_deb "lindows-uac-preview" "1.0.1+lindows4" "python3, python3-tk" "$STAGE" "Non-authorising Lindows UAC preview"
 
 log "packaging Lindows Defender"
 SRC="$WORK/linux-defender"; source_locked linux-defender "$SRC"

@@ -32,11 +32,13 @@ Lindows 2.0 是面向 AMD64 的 Debian Bookworm 轻量级 X11 Live 发行版。�
 
 ## 启动与安装一致性
 
-BIOS 使用 Isolinux 与同一套 `boot=live components splash` 内核参数。UEFI 在 ISO 重打包阶段使用同样的 Live 参数与 GRUB standalone 引导项。已安装系统仅在主题描述符和壁纸均存在时写入 `GRUB_THEME`；主题资源以相对路径引用，防止目标路径差异或缺失资源造成 GRUB 主题加载警告。
+BIOS 使用 Isolinux 与同一套 `boot=live components` 内核参数，保留内核和 systemd 的可见滚屏，避免图形服务启动前出现无反馈黑屏。UEFI 在 ISO 重打包阶段使用同样的 Live 参数与 GRUB standalone 引导项，安全图形项另加 `nomodeset`。已安装系统仅在主题描述符和壁纸均存在时写入 `GRUB_THEME`；主题资源以相对路径引用，防止目标路径差异或缺失资源造成 GRUB 主题加载警告。
 
 Calamares 后安装脚本会将 Lindows 主题与壁纸复制到目标系统，再写入 `/etc/default/grub.d/00-lindows.cfg`。若资源缺失，脚本移除该主题 drop-in，而非留下悬空的主题引用。
 
 ## 可追溯性与 ISO 验收
+
+设备管理器在 Lindows 构建副本中固定使用 Fyne `VariantLight`，不继承暗色系统偏好。交互终端中的 `sudo` 仍指向未修改的系统认证和 PAM；Lindows 仅通过 `lindows-sudo` 先执行原生密码验证、再显示 UAC 确认，取消或 UI 失败时不执行目标命令。
 
 每个 Actions 构建会生成以下审计材料：组件 DEB 的 `SHA256SUMS`、`LINDOWS-2.0-COMPONENTS.txt`、包含来源/二进制锁及图标覆盖哈希的 `LINDOWS-2.0-BUILD-MANIFEST.json`、ISO 校验值与 El Torito 报告。工作流还会从最终 ISO 解出 BIOS syslinux 模块、EFI 镜像和 squashfs，验证 Calamares、最小 Live sudoers、无 LightDM、ElevenDE 原生显示服务、组件适配器、Lindows Store 和 20 个 Windows 11 图标；随后在 QEMU 的 BIOS 与 OVMF UEFI 模式下进行有界启动冒烟测试。
 

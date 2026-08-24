@@ -191,6 +191,24 @@ source_locked device-manager "$DEVMGR"
     # Upstream lacks go.sum. The Lindows package layer carries the audited
     # lock, then forces readonly resolution instead of mutating upstream files.
     install -m 0644 "$ROOT/vendor/lindows-device-manager.go.sum" go.sum
+    python3 - "$DEVMGR/ui.go" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+s = p.read_text()
+old = '''func (t noSepTheme) Color(n fyne.ThemeColorName, v fyne.ThemeVariant) color.Color {
+\treturn theme.DefaultTheme().Color(n, v)
+}
+'''
+new = '''func (t noSepTheme) Color(n fyne.ThemeColorName, v fyne.ThemeVariant) color.Color {
+\t// Lindows is light-only; never inherit a dark Fyne/system variant.
+\treturn theme.DefaultTheme().Color(n, theme.VariantLight)
+}
+'''
+if old not in s:
+    raise SystemExit("Device Manager theme block not found")
+p.write_text(s.replace(old, new, 1))
+PY
     go mod download
     CGO_ENABLED=1 go build -mod=readonly -trimpath -ldflags="-s -w" -o devmgr ui.go
     go build -mod=readonly -trimpath -ldflags="-s -w" -o devmgr-cli cli.go
