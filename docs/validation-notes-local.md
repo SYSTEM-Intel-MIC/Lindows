@@ -39,12 +39,14 @@ GitHub Actions 运行 `32686179382`（提交 `023b6b9`，分支 `lindows-2.0-int
 
 当前主机仍未完成健康 VM 的真实落盘安装、安装后登录、设备管理器手工打开验证和 sudo/UAC 鼠标交互回归，因此不把这些项目虚构为已通过。当前可确认结论为：**代码静态检查通过，CI 构建通过，BIOS/UEFI 最终图形桌面视觉门控通过；完整健康 VM 交互验证仍待执行。**
 
-## 2026-08-24：会话稳定性、中文文字与动态重排修复
+## 2026-08-24：稳定性恢复与安装后动作路径重构
 
-提交 `6bb7606` 已推送到 `lindows-2.0-integration`，GitHub Actions 运行 `32716877911` 已以 `success` 完成。该运行的 ISO 完整性验证、BIOS/UEFI QEMU 冒烟启动、QEMU 视觉诊断上传、ISO/验证工件上传及组件包上传均已成功；发布步骤按分支策略跳过，未创建 Release。
+提交 `df73c54` 与后续 CI 权限补充 `94d952d` 已推送到 `lindows-2.0-integration`。运行 `32730634610` 已以 `success` 完成；其包含组件 DEB 重建、成品 squashfs 完整性校验、最终 ISO 路径断言，以及 BIOS/UEFI QEMU 启动冒烟。开发分支未创建 Release。
 
-本轮从构建输入中移除了 Lindows Control Panel 和 Task Scheduler，包括来源锁、构建配方、桌面入口、图标覆盖层、许可证副本、CI 断言、最终 ISO 校验和公开组件声明。镜像新增 `zh_CN.UTF-8` 生成、Noto CJK Fontconfig 优先级及 ElevenDE 会话启动的 Xresources，以修复截图中开始菜单、SAS 和终端可能出现的中文方框/乱码；开始菜单过滤同时覆盖 Exec、desktop 文件名及中英文显示名，避免遗留关机、重启、睡眠、注销、锁屏条目出现在“所有应用”。Copilot 入口统一经过 `lindows-copilot` 包装器，避免开始菜单路径绕过兼容启动参数。
+本轮继续移除了 Lindows Control Panel 和 Task Scheduler 的构建输入与入口。中文修复不再请求 Bookworm 中不存在的 `Noto Sans Mono CJK SC`，而使用镜像实际含有并经 Fontconfig 确认的 `Noto Sans CJK SC`；`zh_CN.UTF-8`、Fontconfig 与 Xresources 共同为开始菜单、SAS 和终端提供 CJK 回退。Start“所有应用”改为在最终安装钩子中物理删除系统关机、重启、注销、睡眠与锁屏 `.desktop` 文件，并由最终 squashfs 的负向断言复核。注册表编辑器不再使用错误的钥匙图标，改为独立记录来源、由 `regedit_100.ico` 重绘的 Windows 11 图标资源；设备管理器构建副本优先识别并显示 Lindows。
 
-ElevenDE 会话增加受控 Shell 重启循环；显示服务对正常 Openbox 退出也会重启完整会话，因此 SAS“注销”不再应停在仅有左上角光标的黑屏。会话内启动标准 polkit 代理，电源操作仍走 loginctl 的正常授权路径而不降低权限控制。锁屏补丁监听根窗口 ConfigureNotify 与 RandR 屏幕变化，重建全屏窗口、壁纸和离屏帧；Widgets 补丁则监听每个 QScreen 的 geometryChanged 与屏幕增删，延迟合并变更并重新贴合面板与右侧边缘热区。
+严重的稳定性回归已从源头撤回：ElevenDE Shell 恢复为单一长生命周期进程，不再在 RandR 期间循环重建；显示服务从 `Restart=always` 改回 `Restart=on-failure`。SAS 注销改为专用 `lindows-logout` 在 Openbox 退出前写入标记，显示启动器仅对该标记执行同一 Xorg 内的新会话；无标记退出即使状态码为 0 也交给 systemd 失败恢复。Widgets 保持每个屏幕的边缘热区窗口，只在 geometryChanged 时原地重定位，避免销毁/新建热区导致静止鼠标反复触发中间 Widgets。
 
-`32716877911` 的 BIOS 与 UEFI 1280×800 视觉帧均显示真实浅色 ElevenDE 桌面、任务栏、中文“终端”“注册表编辑器”标签以及 Microsoft Edge 图标，没有黑屏或均匀灰屏。这只证明最终桌面启动与基础文字/图标渲染没有回归；它不能替代健康 VM 中的开机滚屏录像、开始菜单实际列表、Copilot 首次点击、设备管理器界面、锁屏动态分辨率、Widgets 热区、SAS 电源操作、注销后登录页或完整 Calamares 安装交互回归。当前主机的 EXT4 问题仍使这些本地交互测试不可信，因此不将其表述为已完成。
+BSOD、Windows Update Preview 和 Start 电源改为经由固定功能的 `lindows-privileged-action` 请求单一 polkit 动作。该调度器只允许 `bsod`、`update-preview`、`suspend`、`poweroff`、`reboot`；BSOD 硬编码 `--restore`，更新预览硬编码 `--no-reboot`，并且没有任意参数传递。Live 用户仅对此单一动作免密，安装系统保留 active-user `auth_self` 的可见认证提示，替代此前只在 Live 工作的宽泛 `pkexec` 例外和安装后裸 `loginctl` 无反馈路径。
+
+真实运行时结论仍受限：我下载运行 `32730512489` 的 ISO 工件时，ZIP 自检通过但解压后 ISO 的 SHA-256 与 CI 附带值不一致；随后宿主内核记录了 `vda` I/O 错误与 EXT4 错误。损坏 ISO 已被删除，未用于 QEMU 或安装验证。因此本轮只能确认最终 CI 构建、成品内容校验和 BIOS/UEFI 启动冒烟通过；**尚未宣称**分辨率热重排、Widgets 热区、SAS 注销/电源、安装后 BSOD/更新、Copilot 首次启动或 Calamares 落盘安装已在健康虚拟机中交互通过。
