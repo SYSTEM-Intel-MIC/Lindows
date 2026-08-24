@@ -53,7 +53,7 @@ if old not in text:
     raise SystemExit("ElevenDE open_path block was not found; source layout changed")
 text = text.replace(old, new, 1)
 old_icon = '        const char *nm = ic[i].is_dir ? "folder" : file_icon_name(ic[i].label);\n        int kind = ic[i].is_dir ? VI_FOLDER : VI_FILE;\n'
-new_icon = '        const char *nm = ic[i].is_dir ? "folder" : file_icon_name(ic[i].label);\n        int kind = ic[i].is_dir ? VI_FOLDER : VI_FILE;\n        if (strstr(ic[i].path, "/Install Lindows.desktop"))\n            nm = "lindows-installer";\n'
+new_icon = '        const char *nm = ic[i].is_dir ? "folder" : file_icon_name(ic[i].label);\n        int kind = ic[i].is_dir ? VI_FOLDER : VI_FILE;\n        /* ElevenDE enumerates ~/Desktop as ordinary files.  Lindows therefore\n         * maps its known launchers here, at the same layer as Install Lindows,\n         * instead of relying on the .desktop Icon= field. */\n        if (strstr(ic[i].path, "/Install Lindows.desktop"))\n            nm = "lindows-installer";\n        else if (strstr(ic[i].path, "/Registry Editor.desktop"))\n            nm = "linux-regedit";\n        else if (strstr(ic[i].path, "/Microsoft Edge.desktop"))\n            nm = "web-browser";\n        else if (strstr(ic[i].path, "/Lindows Terminal.desktop"))\n            nm = "lindows-windowshit";\n'
 if old_icon not in text:
     raise SystemExit("ElevenDE desktop icon block was not found; source layout changed")
 path.write_text(text.replace(old_icon, new_icon, 1))
