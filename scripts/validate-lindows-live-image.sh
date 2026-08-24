@@ -170,7 +170,7 @@ done
 # staging omissions and upstream icon-generation overwrites.
 for icon in \
     linux-pcmanager linux-regedit lindows-bsod lindows-device-manager \
-    lindows-store copilot-for-linux peazip lindows-activation-watermark \
+    microsoft-edge lindows-store copilot-for-linux peazip lindows-activation-watermark \
     lindows-control lindows-troubleshooting lindows-uac-preview lindows-defender \
     lindows-sticky-keys lindows-task-scheduler lindows-widgets lindows-windowshit \
     lindows-winsat lindows-update-preview lindows-winver feedbackhub; do

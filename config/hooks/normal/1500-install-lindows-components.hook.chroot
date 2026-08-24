@@ -21,6 +21,16 @@ fi
 # own executable while giving ElevenDE one session adapter and one Win11 icon
 # namespace for the desktop, Start menu, taskbar and custom title bars.
 install -d /usr/local/share/applications
+# ElevenDE does not read Icon= from desktop files on the desktop surface.  Copy
+# the official icon installed by the locked Microsoft Edge DEB into the same
+# native theme namespace used by the shell, preserving the microsoft-edge name.
+for size in 16 22 24 32 48 64 96 128; do
+    edge_icon="/usr/share/icons/hicolor/${size}x${size}/apps/microsoft-edge.png"
+    if [ -f "$edge_icon" ]; then
+        install -Dm644 "$edge_icon" \
+            "/usr/local/share/elevende-shell/icons/${size}x${size}/apps/microsoft-edge.png"
+    fi
+done
 write_component_entry() {
     file="$1"; name="$2"; name_zh="$3"; icon="$4"; exec_line="$5"; categories="$6"
     cat > "/usr/local/share/applications/$file" <<EOF
@@ -38,7 +48,7 @@ EOF
 }
 ADAPTER=/usr/local/libexec/lindows-component-launch
 write_component_entry linux-pcmanager.desktop "Lindows PC Manager" "Lindows 电脑管家" linux-pcmanager "$ADAPTER linux-pcmanager" "System;Utility;"
-write_component_entry linux-regedit.desktop "Registry Editor" "注册表编辑器" linux-regedit "$ADAPTER linux-regedit" "System;Settings;"
+write_component_entry linux-regedit.desktop "注册表编辑器" "注册表编辑器" linux-regedit "$ADAPTER linux-regedit" "System;Settings;"
 write_component_entry lindows-device-manager.desktop "Device Manager" "设备管理器" lindows-device-manager "$ADAPTER devmgr" "System;Settings;HardwareSettings;"
 write_component_entry lindows-store.desktop "Lindows Store" "Lindows 商店" lindows-store "$ADAPTER lindows-store" "System;Settings;"
 write_component_entry copilot-for-linux.desktop "Copilot for Linux" "Linux Copilot" copilot-for-linux "$ADAPTER \"/opt/Copilot For Linux/copilot-for-linux\" %U" "Utility;"
@@ -51,7 +61,7 @@ write_component_entry lindows-defender.desktop "Lindows Defender" "Lindows Defen
 write_component_entry lindows-sticky-keys.desktop "Sticky Keys" "粘滞键" lindows-sticky-keys "$ADAPTER lindows-sticky-keys" "Settings;Accessibility;"
 write_component_entry lindows-task-scheduler.desktop "Task Scheduler" "任务计划程序" lindows-task-scheduler "$ADAPTER taskschd" "System;Utility;"
 write_component_entry lindows-widgets.desktop "Windows Widgets" "Windows 小组件" lindows-widgets "$ADAPTER lindows-widgets" "Utility;"
-write_component_entry lindows-windowshit.desktop "Windows Commands" "Windows 命令" lindows-windowshit "$ADAPTER lindows-windowshit" "System;Utility;"
+write_component_entry lindows-windowshit.desktop "终端" "终端" lindows-windowshit "$ADAPTER lindows-windowshit" "System;Utility;"
 write_component_entry lindows-winsat.desktop "Windows Experience Index" "Windows 体验指数" lindows-winsat "$ADAPTER winsat" "System;Utility;"
 write_component_entry lindows-update-preview.desktop "Windows Update Preview" "Windows 更新预览" lindows-update-preview "$ADAPTER lindows-update-preview" "Settings;System;"
 write_component_entry lindows-winver.desktop "About Lindows" "关于 Lindows" lindows-winver "$ADAPTER winver" "System;Settings;"
@@ -61,8 +71,8 @@ write_component_entry lindows-bsod.desktop "Lindows Blue Screen Demo" "Lindows �
 # Desktop shortcuts use the same entries as All Apps, avoiding duplicate
 # launchers and preserving the package-provided official Edge icon.
 install -d /etc/skel/Desktop
-install -Dm644 /usr/local/share/applications/linux-regedit.desktop /etc/skel/Desktop/Registry\ Editor.desktop
-install -Dm644 /usr/local/share/applications/lindows-windowshit.desktop /etc/skel/Desktop/Lindows\ Terminal.desktop
+install -Dm644 /usr/local/share/applications/linux-regedit.desktop /etc/skel/Desktop/注册表编辑器.desktop
+install -Dm644 /usr/local/share/applications/lindows-windowshit.desktop /etc/skel/Desktop/终端.desktop
 cat > /etc/skel/Desktop/Microsoft\ Edge.desktop <<'EOF'
 [Desktop Entry]
 Type=Application
