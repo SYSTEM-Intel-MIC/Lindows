@@ -270,7 +270,7 @@ exec python3 main.py "$@"
 SH
 install_desktop "$STAGE" "lindows-task-scheduler.desktop" "Task Scheduler" "taskschd" "appointment-new" "System;Utility;"
 install_license "$SRC" "$STAGE" "lindows-task-scheduler"
-make_deb "lindows-task-scheduler" "1.0.0+lindows2" "python3, python3-pyqt5, python3-croniter, policykit-1" "$STAGE" "Windows-style task scheduler for Lindows"
+make_deb "lindows-task-scheduler" "1.0.1+lindows3" "python3, python3-pyqt6, python3-croniter, policykit-1" "$STAGE" "Windows-style task scheduler for Lindows"
 
 log "packaging Widgets"
 SRC="$WORK/windows-widgets"; source_locked windows-widgets "$SRC"
@@ -316,11 +316,16 @@ cp -a "$SRC/src/pywinsat" "$STAGE/usr/lib/lindows-winsat/"
 install -Dm755 /dev/stdin "$STAGE/usr/bin/winsat" <<'SH'
 #!/bin/sh
 export PYTHONPATH=/usr/lib/lindows-winsat${PYTHONPATH:+:$PYTHONPATH}
+# Desktop launch has no arguments: open the upstream graphical WEI view.
+# Explicit CLI arguments remain available for terminal users.
+if [ "$#" -eq 0 ]; then
+    exec python3 -m pywinsat gui --lang zh
+fi
 exec python3 -m pywinsat "$@"
 SH
 install_desktop "$STAGE" "lindows-winsat.desktop" "Windows Experience Index" "winsat" "applications-system" "System;Utility;"
 install_license "$SRC" "$STAGE" "lindows-winsat"
-make_deb "lindows-winsat" "1.0.0+lindows2" "python3" "$STAGE" "Windows Experience Index style benchmark tool"
+make_deb "lindows-winsat" "1.0.1+lindows3" "python3, python3-tk" "$STAGE" "Windows Experience Index style benchmark tool"
 
 log "building safe Windows Update preview"
 SRC="$WORK/windows-update-preview"; source_locked windows-update-preview "$SRC"
@@ -328,24 +333,16 @@ cmake -S "$SRC" -B "$SRC/build" -DCMAKE_BUILD_TYPE=Release
 cmake --build "$SRC/build" --parallel
 STAGE="$WORK/pkg-lindows-update-preview"
 install -Dm755 "$SRC/windows_update_in_linux" "$STAGE/usr/lib/lindows-update-preview/windows_update_in_linux"
-install -Dm755 /dev/stdin "$STAGE/usr/lib/lindows-update-preview/preview.py" <<'PY'
-#!/usr/bin/env python3
-import tkinter as tk
-root=tk.Tk(); root.title("Windows 更新预览"); root.geometry("720x430"); root.configure(bg="#ffffff")
-tk.Label(root,text="Windows 更新",font=("Sans",25,"bold"),bg="#ffffff",fg="#202020").pack(anchor="w",padx=42,pady=(36,8))
-tk.Label(root,text="Lindows 更新预览",font=("Sans",14),bg="#ffffff",fg="#555555").pack(anchor="w",padx=42)
-bar=tk.Canvas(root,height=18,bg="#e9edf2",highlightthickness=0); bar.pack(fill="x",padx=42,pady=(38,8)); bar.create_rectangle(0,0,350,18,fill="#0f6cbd",outline="")
-tk.Label(root,text="此界面是安全预览。系统更新仍由 APT 管理，预览不会下载软件、修改系统或重启。",font=("Sans",12),bg="#ffffff",fg="#444444",wraplength=610,justify="left").pack(anchor="w",padx=42,pady=12)
-tk.Button(root,text="关闭",command=root.destroy,bg="#0f6cbd",fg="white",relief="flat",padx=24,pady=8).pack(anchor="e",padx=42,pady=26)
-root.mainloop()
-PY
 install -Dm755 /dev/stdin "$STAGE/usr/bin/lindows-update-preview" <<'SH'
 #!/bin/sh
-exec python3 /usr/lib/lindows-update-preview/preview.py "$@"
+# Preserve the upstream direct TTY/DRM visual renderer. It is intentionally
+# privileged because it takes an idle VT, but Lindows permanently disables its
+# reboot branch so it always restores the graphical desktop after the preview.
+exec pkexec /usr/lib/lindows-update-preview/windows_update_in_linux --no-reboot "$@"
 SH
 install_desktop "$STAGE" "lindows-update-preview.desktop" "Windows Update Preview" "Windows 更新预览" "software-update-available" "System;Settings;"
 install_license "$SRC" "$STAGE" "lindows-update-preview"
-make_deb "lindows-update-preview" "1.0.1+lindows3" "python3, python3-tk" "$STAGE" "Non-destructive Lindows Windows Update preview"
+make_deb "lindows-update-preview" "1.0.2+lindows4" "libc6, libdrm2, libfreetype6, libfontconfig1, libsystemd0, policykit-1" "$STAGE" "Safe direct-TTY Lindows Windows Update preview"
 
 log "building About Lindows (winver)"
 SRC="$WORK/linux-winver"; source_locked linux-winver "$SRC"

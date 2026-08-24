@@ -36,7 +36,11 @@ new_filter = '''        if (!ex[0]) continue;
          * controls, never as duplicate unsafe entries under All apps. */
         if (ci_strstr(ex, "systemctl poweroff") || ci_strstr(ex, "systemctl reboot") ||
             ci_strstr(ex, "systemctl suspend") || ci_strstr(ex, "loginctl terminate-session") ||
-            ci_strstr(ex, "loginctl lock-session") || ci_strstr(ex, "gnome-session-quit"))
+            ci_strstr(ex, "loginctl lock-session") || ci_strstr(ex, "gnome-session-quit") ||
+            ci_strstr(ex, "lindows-power-action") || ci_strstr(ex, "shutdown") ||
+            ci_strstr(ex, "poweroff") || ci_strstr(ex, "reboot") ||
+            ci_strstr(ex, "suspend") || ci_strstr(ex, "logout") ||
+            ci_strstr(ex, "lockscreen"))
             continue;
         App *a = &apps[napps];
 '''

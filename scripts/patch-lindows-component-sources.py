@@ -21,6 +21,27 @@ def patch_store(root: Path) -> None:
         "GdkPixbuf.Pixbuf.new_from_file_at_scale(source, width, height, True)",
         "store aspect-ratio patch",
     )
+    need_replace(
+        path,
+        '''        frame = Gtk.EventBox()
+        add_class(frame, css_name)
+        frame.add(overlay)
+''',
+        '''        frame = Gtk.EventBox()
+        card_height = 330 if is_hero else 172
+        # Gtk.Overlay otherwise inherits only a transient text requisition on
+        # some X11 themes and collapses the image to a thin strip.  Pin the
+        # intended card height while still letting width follow the viewport.
+        image.set_size_request(-1, card_height)
+        image.set_hexpand(True)
+        image.set_vexpand(False)
+        overlay.set_size_request(-1, card_height)
+        frame.set_size_request(-1, card_height)
+        add_class(frame, css_name)
+        frame.add(overlay)
+''',
+        "store card minimum-height patch",
+    )
 
 
 def patch_widgets(root: Path) -> None:
@@ -38,12 +59,12 @@ def patch_widgets(root: Path) -> None:
 
 def patch_task_scheduler(root: Path) -> None:
     path = root / "ltask" / "qt.py"
-    path.write_text(
-        "# -*- coding: utf-8 -*-\n"
-        "\"\"\"Lindows uses Debian Bookworm's supported PyQt5 binding.\"\"\"\n\n"
-        "from PyQt5 import QtCore, QtGui, QtWidgets\n\n"
-        "__all__ = [\"QtCore\", \"QtGui\", \"QtWidgets\"]\n"
-    )
+    text = path.read_text()
+    # Task Scheduler uses Qt6-only enums (AlignmentFlag, ItemDataRole,
+    # DialogCode and StandardButton). Debian provides PyQt6; preserve the
+    # upstream fallback instead of applying a lossy PyQt5 rewrite.
+    if "from PyQt6 import QtCore, QtGui, QtWidgets" not in text:
+        raise SystemExit("task scheduler requires its upstream PyQt6 fallback")
 
 
 def patch_control(root: Path) -> None:
@@ -70,6 +91,37 @@ def patch_control(root: Path) -> None:
         'self.dark_mode = config.dark_mode;',
         'self.dark_mode = false; // Lindows is intentionally light-only.',
         "control force light state",
+    )
+    need_replace(
+        app,
+        '''                    let icon1 = if self.show_icons { "🖥️ " } else { "" };
+                    let icon2 = if self.show_icons { "🌐 " } else { "" };
+                    let icon3 = if self.show_icons { "📦 " } else { "" };
+                    let icon4 = if self.show_icons { "👤 " } else { "" };
+                    let icon5 = if self.show_icons { "⚙️ " } else { "" };
+''',
+        '''                    // egui has no bundled color-emoji font in the Debian
+                    // build. Keep these controls text-stable; their official
+                    // Windows icons are supplied at shell/menu/titlebar level.
+                    let icon1 = "";
+                    let icon2 = "";
+                    let icon3 = "";
+                    let icon4 = "";
+                    let icon5 = "";
+''',
+        "control unsupported emoji button icons",
+    )
+    need_replace(
+        app,
+        'let label = if self.show_icons { "🔹 " } else { "" };',
+        'let label = "";',
+        "control unsupported custom-button emoji",
+    )
+    need_replace(
+        app,
+        'let settings_label = if self.show_icons { "⚙️ " } else { "" };',
+        'let settings_label = "";',
+        "control unsupported settings emoji",
     )
     need_replace(
         app,
