@@ -38,3 +38,13 @@ GitHub Actions 运行 `32686179382`（提交 `023b6b9`，分支 `lindows-2.0-int
 设备管理器在 Lindows 构建副本中将 Fyne 主题颜色固定到 `theme.VariantLight`，并继续通过统一组件适配器使用浅色 GTK/Qt 环境。sudo/UAC 采用不修改系统 `/usr/bin/sudo`、PAM 或 sudoers 的安全方案：交互终端的 `sudo` 别名调用 `lindows-sudo`，先执行原生 `/usr/bin/sudo -v` 校验当前用户密码，再显示 UAC 确认；用户取消、关闭窗口或 UI 失败时不会执行目标命令，确认后才调用未修改的 `/usr/bin/sudo`。
 
 当前主机仍未完成健康 VM 的真实落盘安装、安装后登录、设备管理器手工打开验证和 sudo/UAC 鼠标交互回归，因此不把这些项目虚构为已通过。当前可确认结论为：**代码静态检查通过，CI 构建通过，BIOS/UEFI 最终图形桌面视觉门控通过；完整健康 VM 交互验证仍待执行。**
+
+## 2026-08-24：会话稳定性、中文文字与动态重排修复
+
+提交 `6bb7606` 已推送到 `lindows-2.0-integration`，GitHub Actions 运行 `32716877911` 已以 `success` 完成。该运行的 ISO 完整性验证、BIOS/UEFI QEMU 冒烟启动、QEMU 视觉诊断上传、ISO/验证工件上传及组件包上传均已成功；发布步骤按分支策略跳过，未创建 Release。
+
+本轮从构建输入中移除了 Lindows Control Panel 和 Task Scheduler，包括来源锁、构建配方、桌面入口、图标覆盖层、许可证副本、CI 断言、最终 ISO 校验和公开组件声明。镜像新增 `zh_CN.UTF-8` 生成、Noto CJK Fontconfig 优先级及 ElevenDE 会话启动的 Xresources，以修复截图中开始菜单、SAS 和终端可能出现的中文方框/乱码；开始菜单过滤同时覆盖 Exec、desktop 文件名及中英文显示名，避免遗留关机、重启、睡眠、注销、锁屏条目出现在“所有应用”。Copilot 入口统一经过 `lindows-copilot` 包装器，避免开始菜单路径绕过兼容启动参数。
+
+ElevenDE 会话增加受控 Shell 重启循环；显示服务对正常 Openbox 退出也会重启完整会话，因此 SAS“注销”不再应停在仅有左上角光标的黑屏。会话内启动标准 polkit 代理，电源操作仍走 loginctl 的正常授权路径而不降低权限控制。锁屏补丁监听根窗口 ConfigureNotify 与 RandR 屏幕变化，重建全屏窗口、壁纸和离屏帧；Widgets 补丁则监听每个 QScreen 的 geometryChanged 与屏幕增删，延迟合并变更并重新贴合面板与右侧边缘热区。
+
+`32716877911` 的 BIOS 与 UEFI 1280×800 视觉帧均显示真实浅色 ElevenDE 桌面、任务栏、中文“终端”“注册表编辑器”标签以及 Microsoft Edge 图标，没有黑屏或均匀灰屏。这只证明最终桌面启动与基础文字/图标渲染没有回归；它不能替代健康 VM 中的开机滚屏录像、开始菜单实际列表、Copilot 首次点击、设备管理器界面、锁屏动态分辨率、Widgets 热区、SAS 电源操作、注销后登录页或完整 Calamares 安装交互回归。当前主机的 EXT4 问题仍使这些本地交互测试不可信，因此不将其表述为已完成。
