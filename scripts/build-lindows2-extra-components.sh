@@ -328,13 +328,14 @@ install -Dm755 "$SRC/windows_update_in_linux" "$STAGE/usr/lib/lindows-update-pre
 install -Dm755 /dev/stdin "$STAGE/usr/bin/lindows-update-preview" <<'SH'
 #!/bin/sh
 # Preserve the upstream direct TTY/DRM visual renderer. It is intentionally
-# privileged because it takes an idle VT, but Lindows permanently disables its
-# reboot branch so it always restores the graphical desktop after the preview.
-exec pkexec /usr/lib/lindows-update-preview/windows_update_in_linux --no-reboot "$@"
+# privileged because it takes an idle VT, but the fixed Lindows dispatcher
+# permanently injects --no-reboot and accepts no user-supplied arguments.
+[ "$#" -eq 0 ] || exit 64
+exec pkexec /usr/local/libexec/lindows-privileged-action update-preview
 SH
 install_desktop "$STAGE" "lindows-update-preview.desktop" "Windows Update Preview" "Windows 更新预览" "software-update-available" "System;Settings;"
 install_license "$SRC" "$STAGE" "lindows-update-preview"
-make_deb "lindows-update-preview" "1.0.2+lindows4" "libc6, libdrm2, libfreetype6, libfontconfig1, libsystemd0, policykit-1" "$STAGE" "Safe direct-TTY Lindows Windows Update preview"
+make_deb "lindows-update-preview" "1.0.2+lindows5" "libc6, libdrm2, libfreetype6, libfontconfig1, libsystemd0, policykit-1" "$STAGE" "Safe direct-TTY Lindows Windows Update preview"
 
 log "building About Lindows (winver)"
 SRC="$WORK/linux-winver"; source_locked linux-winver "$SRC"

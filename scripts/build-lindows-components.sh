@@ -163,13 +163,12 @@ meson compile -C "$BSOD/build"
 STAGE="$WORK/pkg-lindows-bsod"
 install -Dm755 "$BSOD/build/bsod" "$STAGE/usr/local/sbin/lindows-bsod"
 # The upstream renderer intentionally owns a dedicated VT/DRM master.
-# Lindows invokes the real renderer through pkexec, but always forces its
-# documented restore mode so the demo cannot reboot the machine.
+# Lindows invokes only the fixed-function polkit dispatcher; it alone injects
+# --restore, so this demo cannot reboot the machine or run arbitrary commands.
 install -Dm755 /dev/stdin "$STAGE/usr/local/bin/lindows-bsod-demo" <<'LAUNCH'
 #!/bin/sh
 set -eu
-reason="Lindows 蓝屏演示（安全恢复模式）"
-exec pkexec /usr/local/sbin/lindows-bsod --show "$reason" --restore
+exec pkexec /usr/local/libexec/lindows-privileged-action bsod
 LAUNCH
 install -Dm644 /dev/stdin "$STAGE/usr/share/applications/lindows-bsod.desktop" <<'DESKTOP'
 [Desktop Entry]
@@ -183,7 +182,7 @@ Terminal=false
 Categories=System;
 DESKTOP
 install -Dm644 "$BSOD/LICENSE" "$STAGE/usr/share/doc/lindows-bsod/copyright"
-make_deb "lindows-bsod" "1.0.4+lindows3" "libc6, libdrm2, libfreetype6, libfontconfig1, libsystemd0, policykit-1" "$STAGE" "Safe reversible Lindows blue-screen TTY demonstration"
+make_deb "lindows-bsod" "1.0.4+lindows4" "libc6, libdrm2, libfreetype6, libfontconfig1, libsystemd0, policykit-1" "$STAGE" "Safe reversible Lindows blue-screen TTY demonstration"
 
 log "building Device Manager package"
 DEVMGR="$WORK/devmgr"
@@ -209,7 +208,19 @@ new = '''func (t noSepTheme) Color(n fyne.ThemeColorName, v fyne.ThemeVariant) c
 '''
 if old not in s:
     raise SystemExit("Device Manager theme block not found")
-p.write_text(s.replace(old, new, 1))
+s = s.replace(old, new, 1)
+replacements = {
+    'switch {\n\tcase strings.Contains(data, "manjaro")': 'switch {\n\tcase strings.Contains(data, "lindows"):\n\t\treturn "lindows"\n\tcase strings.Contains(data, "manjaro")',
+    'app.NewWithID("devmgr.linux")': 'app.NewWithID("devmgr.lindows")',
+    'a.NewWindow("设备管理器")': 'a.NewWindow("Lindows 设备管理器")',
+    '"Microsoft 管理控制台\\n(Linux 兼容实现)"': '"Lindows 管理控制台\\n(Lindows 兼容实现)"',
+    '"设备管理器\\nLinux 版"': '"Lindows 设备管理器\\nLindows 2.0"',
+}
+for source, replacement in replacements.items():
+    if source not in s:
+        raise SystemExit(f"Device Manager branding anchor not found: {source!r}")
+    s = s.replace(source, replacement, 1)
+p.write_text(s)
 PY
     go mod download
     CGO_ENABLED=1 go build -mod=readonly -trimpath -ldflags="-s -w" -o devmgr ui.go
@@ -221,16 +232,16 @@ install -Dm755 "$DEVMGR/devmgr-cli" "$STAGE/usr/local/bin/devmgr-cli"
 install -Dm644 /dev/stdin "$STAGE/usr/share/applications/lindows-device-manager.desktop" <<'DESKTOP'
 [Desktop Entry]
 Type=Application
-Name=Device Manager
-Name[zh_CN]=设备管理器
-Comment=View Linux hardware in a Windows-style device manager
+Name=Lindows Device Manager
+Name[zh_CN]=Lindows 设备管理器
+Comment=View Lindows hardware in a Windows-style device manager
 Exec=devmgr
 Icon=computer
 Terminal=false
 Categories=System;Settings;HardwareSettings;
 DESKTOP
 install -Dm644 "$DEVMGR/LICENSE" "$STAGE/usr/share/doc/lindows-device-manager/copyright"
-make_deb "lindows-device-manager" "0.1.0+lindows1" "libgl1, libx11-6, libxrandr2, libxinerama1, libxcursor1, libxi6, policykit-1, pciutils, usbutils" "$STAGE" "Windows-style Linux device manager"
+make_deb "lindows-device-manager" "0.1.0+lindows2" "libgl1, libx11-6, libxrandr2, libxinerama1, libxcursor1, libxi6, policykit-1, pciutils, usbutils" "$STAGE" "Windows-style Linux device manager"
 
 log "building Lindows Store from locked source"
 STORE="$WORK/linux-store"

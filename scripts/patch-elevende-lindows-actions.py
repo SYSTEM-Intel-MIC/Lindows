@@ -31,11 +31,9 @@ old_logout = '''        "注销": {
             "exitAfter": true
         },'''
 new_logout = '''        "注销": {
-            "command": "openbox",
-            "args": ["--exit"],
-            "fallback": [
-                { "command": "loginctl", "args": ["terminate-session", "self"] }
-            ],
+            "command": "/usr/local/bin/lindows-logout",
+            "args": [],
+            "fallback": [],
             "exitAfter": true
         },'''
 if new_logout not in cfg:

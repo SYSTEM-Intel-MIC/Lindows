@@ -57,51 +57,86 @@ def patch_widgets(root: Path) -> None:
     )
     need_replace(
         path,
-        "from PyQt5.QtCore import Qt, QObject, QEvent, QTimer, pyqtSignal\n",
-        "from PyQt5.QtCore import Qt, QObject, QEvent, QTimer, pyqtSignal\n"
-        "from PyQt5.QtGui import QCursor\n",
-        "widgets cursor import",
+        '''class EdgeStrip(QWidget):
+    """贴在屏幕右侧边缘的隐形窗口（XWayland 真实表面），
+    光标移上去触发 enterEvent，比轮询全局坐标可靠。"""
+
+    def __init__(self, screen_geo, on_enter):
+        super().__init__()
+        self._on_enter = on_enter
+        self._geo = screen_geo
+        self.setWindowFlags(
+            Qt.FramelessWindowHint
+            | Qt.WindowStaysOnTopHint
+            | Qt.Tool
+            | Qt.WindowDoesNotAcceptFocus
+        )
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.setAttribute(Qt.WA_ShowWithoutActivating, True)
+        self.setAttribute(Qt.WA_Hover, True)
+        self.reposition(screen_geo)
+        self.show()
+
+    def reposition(self, geo):
+        self._geo = geo
+        w = 6
+        self.setGeometry(geo.right() - w + 1, geo.y(), w, geo.height())
+
+    def enterEvent(self, e):
+        if self._on_enter:
+            self._on_enter(self._geo)
+        super().enterEvent(e)
+''',
+        '''class EdgeStrip(QWidget):
+    """A persistent, transparent right-edge trigger bound to one QScreen.
+
+    Repositioning an existing X11 window is important: recreating the strip
+    during every RandR geometry event emits a new enterEvent under a stationary
+    pointer and repeatedly opens Widgets after a resolution change.
+    """
+
+    def __init__(self, screen, on_enter):
+        super().__init__()
+        self._on_enter = on_enter
+        self._screen = screen
+        self._geo = screen.geometry()
+        self.setWindowFlags(
+            Qt.FramelessWindowHint
+            | Qt.WindowStaysOnTopHint
+            | Qt.Tool
+            | Qt.WindowDoesNotAcceptFocus
+        )
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.setAttribute(Qt.WA_ShowWithoutActivating, True)
+        self.setAttribute(Qt.WA_Hover, True)
+        self._screen.geometryChanged.connect(self.reposition)
+        self.reposition(self._geo)
+        self.show()
+
+    def reposition(self, geo):
+        self._geo = geo
+        width = 6
+        self.setGeometry(geo.right() - width + 1, geo.y(), width, geo.height())
+
+    def enterEvent(self, e):
+        if self._on_enter:
+            self._on_enter(self._geo)
+        super().enterEvent(e)
+''',
+        "widgets persistent edge strip patch",
     )
     need_replace(
         path,
         "        self.app.screenAdded.connect(lambda _s: self._build_edge_strips())\n",
-        "        self._screen_ids = set()\n"
-        "        self._screen_layout_timer = QTimer(self)\n"
-        "        self._screen_layout_timer.setSingleShot(True)\n"
-        "        self._screen_layout_timer.timeout.connect(self._refresh_screen_layout)\n"
-        "        self._watch_screen_geometry()\n"
-        "        self.app.screenAdded.connect(lambda _s: self._schedule_screen_layout_refresh())\n"
-        "        self.app.screenRemoved.connect(lambda _s: self._schedule_screen_layout_refresh())\n",
-        "widgets screen layout watcher",
+        "        self.app.screenAdded.connect(lambda _s: self._build_edge_strips())\n"
+        "        self.app.screenRemoved.connect(lambda _s: self._build_edge_strips())\n",
+        "widgets screen add/remove patch",
     )
     need_replace(
         path,
-        "    def _build_edge_strips(self):\n",
-        '''    def _watch_screen_geometry(self):
-        """Subscribe once per QScreen so RandR geometry changes rebuild hotzones."""
-        for sc in self.app.screens():
-            key = id(sc)
-            if key in self._screen_ids:
-                continue
-            self._screen_ids.add(key)
-            sc.geometryChanged.connect(lambda _geo: self._schedule_screen_layout_refresh())
-
-    def _schedule_screen_layout_refresh(self):
-        # XRandR may emit several geometry changes while Settings applies a mode.
-        # Coalesce them so no stale mid-screen strip remains between events.
-        self._screen_layout_timer.start(75)
-
-    def _refresh_screen_layout(self):
-        self._watch_screen_geometry()
-        screen = self.app.screenAt(QCursor.pos()) or self.app.primaryScreen()
-        if screen is not None:
-            self._screen = screen.geometry()
-            self.panel.set_screen(self._screen)
-        self._build_edge_strips()
-
-    def _build_edge_strips(self):
-''',
-        "widgets screen layout refresh methods",
+        "                strip = EdgeStrip(sc.geometry(), self._on_edge_enter)\n",
+        "                strip = EdgeStrip(sc, self._on_edge_enter)\n",
+        "widgets edge strip screen binding patch",
     )
 
 
@@ -123,8 +158,7 @@ patchers = {
     "widgets": patch_widgets,
     "activation": patch_activation,
 }
-try:
-    patchers[component](root)
-except KeyError:
-    raise SystemExit(f"unknown component: {component}")
+if component not in patchers:
+    raise SystemExit(f"unsupported component patch target: {component}")
+patchers[component](root)
 print(f"patched Lindows build copy for {component}: {root}")

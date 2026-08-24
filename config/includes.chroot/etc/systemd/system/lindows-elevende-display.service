@@ -23,11 +23,12 @@ StandardInput=tty
 StandardOutput=journal
 StandardError=journal
 ExecStart=/usr/local/sbin/lindows-elevende-display
-# A normal Openbox exit is the ElevenDE logout path.  Restart the complete
-# display/session chain so logout returns to the native login gate instead of
-# leaving the X VT on a black root window with a blinking console cursor.
-Restart=always
-RestartSec=2
+# Normal logout is handled inside the display launcher without tearing down
+# Xorg.  Restart the service only after an unexpected launcher/Xorg failure;
+# unconditional restart caused desktop and taskbar recreation during unstable
+# RandR transitions.
+Restart=on-failure
+RestartSec=3
 
 [Install]
 WantedBy=graphical.target

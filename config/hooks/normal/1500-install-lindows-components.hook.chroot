@@ -100,6 +100,38 @@ rm -f /usr/share/applications/lindows-sticky-keys.desktop \
       /usr/share/applications/widget-panel.desktop \
       /usr/share/applications/activate-linux.desktop
 
+# Never expose standalone session/power commands as ordinary applications.  The
+# Start and SAS power controls remain the only supported routes, so command
+# entries cannot bypass their confirmation/authentication policy or appear as
+# malformed Chinese duplicates in All Apps.
+is_system_command_entry() {
+    desktop_file="$1"
+    grep -Eqi \
+        '^(Name|Name\[zh_CN\]|GenericName|Comment)=.*(Shutdown|Shut Down|Power Off|Restart|Reboot|Log ?Out|Logoff|Logout|Suspend|Sleep|Hibernate|Lock Screen|Lock Session|关机|重启|注销|登出|睡眠|休眠|锁屏|锁定)' \
+        "$desktop_file" || \
+    grep -Eqi \
+        '^Exec=.*(systemctl[[:space:]]+(poweroff|reboot|suspend|hibernate)|loginctl[[:space:]]+(poweroff|reboot|suspend|hibernate|terminate-session|lock-session)|(^|[[:space:]])(poweroff|reboot|shutdown|logout|logoff|xscreensaver-command|dm-tool)[[:space:]])' \
+        "$desktop_file"
+}
+for desktop_file in /usr/share/applications/*.desktop /usr/local/share/applications/*.desktop; do
+    [ -f "$desktop_file" ] || continue
+    # Keep the curated, safe Lindows entries even if a future translation adds
+    # an English word such as "Update" or "Lock" to a comment.
+    case "$(basename "$desktop_file")" in
+        lindows-update-preview.desktop|lindows-bsod.desktop|microsoft-edge.desktop|linux-regedit.desktop|lindows-device-manager.desktop)
+            continue
+            ;;
+    esac
+    if is_system_command_entry "$desktop_file"; then
+        echo "Removing unsupported All Apps system-command entry: $desktop_file"
+        rm -f "$desktop_file"
+    fi
+done
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database /usr/share/applications
+    update-desktop-database /usr/local/share/applications
+fi
+
 # Widgets are a Lindows desktop surface, not a utility the user must manually
 # launch once before its own per-user preference is written.
 install -Dm644 /dev/stdin /etc/xdg/autostart/lindows-widgets.desktop <<'EOF'

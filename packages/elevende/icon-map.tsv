@@ -1,7 +1,7 @@
 # Lindows ElevenDE icon integration map
-# desktop/icon alias	WindowsIcons source relative to Icons/	component
+# desktop/icon alias	WindowsIcons relative path or @local/ path	component
 linux-pcmanager	applications/controlpanel.ico	Linux PC Manager
-linux-regedit	objects/keys.ico	Registry Editor
+linux-regedit	@local/registry-editor-windows-11.png	Registry Editor
 lindows-bsod	emblems/arrayblue.ico	Lindows Blue Screen Demo
 lindows-device-manager	devices/device.ico	Device Manager
 lindows-store	applications/store.ico	Lindows Store

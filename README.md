@@ -32,9 +32,9 @@ Lindows 不把所有上游项目做成长期完整 fork，也不让 `live-build`
 
 ## ElevenDE Windows 11 图标与 UI 适配
 
-Lindows 对每个集成组件提供明确的 ElevenDE 图标别名，而不是依赖 Linux 主题的随机回退。`packages/elevende/icon-map.tsv` 将组件入口映射到用户指定的 [WindowsIcons](https://github.com/HaydenReeve/WindowsIcons) ICO 路径；`scripts/import-lindows-win11-icons.py` 将**实际使用的 20 组**资产转换为 16–128px PNG 覆盖层。仓库保存被使用的确定性输出和来源说明，不镜像整个第三方图标库。完整资产边界见 [`packages/elevende/ASSET-SOURCES.md`](packages/elevende/ASSET-SOURCES.md)。
+Lindows 对每个集成组件提供明确的 ElevenDE 图标别名，而不是依赖 Linux 主题的随机回退。`packages/elevende/icon-map.tsv` 将大多数入口映射到用户指定的 [WindowsIcons](https://github.com/HaydenReeve/WindowsIcons) ICO 路径，并为注册表编辑器使用单独记录来源、由 `regedit_100.ico` 重绘的公开 Windows 11 图标资源；`scripts/import-lindows-win11-icons.py` 将**实际使用的 18 组**资产转换为 16–128px PNG 覆盖层。仓库保存被使用的确定性输出和来源说明，不镜像完整第三方图标库。完整资产边界见 [`packages/elevende/ASSET-SOURCES.md`](packages/elevende/ASSET-SOURCES.md)。
 
-构建时，`patch-elevende-lindows-component-icons.py` 向 ElevenDE 的窗口/应用解析表注入命令与窗口类别名，`patch-elevende-icon-overlay-staging.py` 确保上游图标生成步骤后重新放入覆盖资源。因此桌面、开始菜单、任务栏和 ElevenDE 绘制的窗口标题栏都解析同一 Windows 11 图标。最终 ISO 验证会检查全部 20 个 64px 图标存在，不允许构建时丢失。
+构建时，`patch-elevende-lindows-component-icons.py` 向 ElevenDE 的窗口/应用解析表注入命令与窗口类别名，`patch-elevende-icon-overlay-staging.py` 确保上游图标生成步骤后重新放入覆盖资源。因此桌面、开始菜单、任务栏和 ElevenDE 绘制的窗口标题栏都解析同一 Windows 11 图标。最终 ISO 验证会检查全部 18 个 64px 图标存在，并拒绝残留的关机、重启、注销、睡眠或锁屏桌面入口。
 
 第三方入口统一经由 `/usr/local/libexec/lindows-component-launch` 运行。该适配器设置 ElevenDE/X11 会话变量、关闭 GTK 客户端标题栏并使用统一图标搜索路径；`/usr/share/themes/ElevenDE/gtk-3.0/gtk.css` 为 GTK 的按钮、输入框、列表、进度条和焦点状态提供浅色、圆角和蓝色强调。Qt/GTK/Tk 应用仍保留各自上游业务界面，但窗口外框、标题栏、启动入口、图标和基本控件行为遵循 ElevenDE 环境。
 
@@ -77,7 +77,7 @@ git switch lindows-2.0-integration
 bash scripts/local-test.sh
 ```
 
-构建顺序为：来源锁与缓存 → 核心/附加 DEB → SHA-256 与包元数据校验 → 构建清单 → Live staging → Bookworm ISO → BIOS/UEFI 重打包 → squashfs 内容校验 → QEMU BIOS/UEFI 冒烟。`scripts/validate-lindows-live-image.sh` 必须确认 Calamares 后安装模块、最小 Live sudoers、无 LightDM、原生 ElevenDE 服务、20 个图标别名、Lindows Store 和关键组件入口均在最终 squashfs 中。
+构建顺序为：来源锁与缓存 → 核心/附加 DEB → SHA-256 与包元数据校验 → 构建清单 → Live staging → Bookworm ISO → BIOS/UEFI 重打包 → squashfs 内容校验 → QEMU BIOS/UEFI 冒烟。`scripts/validate-lindows-live-image.sh` 必须确认 Calamares 后安装模块、最小 Live sudoers、无 LightDM、原生 ElevenDE 服务、18 个图标别名、受限 polkit 调度器、无系统命令桌面入口、Lindows Store 和关键组件入口均在最终 squashfs 中。
 
 GitHub Actions 在开发分支上传 ISO、ISO SHA-256、启动报告、构建日志、组件包集和 manifest 作为 Artifacts。工作流仅在 `main` 条件满足时创建 GitHub Release；当前开发分支**绝不发布正式 Release**。
 
@@ -88,6 +88,8 @@ Lindows 自有集成代码、构建 recipe、补丁、配置、品牌资源和�
 ElevenDE 自有代码按 GPL-3.0-or-later 发布；其 SAS-for-Linux、Explorer-for-Linux 和 runbox-linux 来源仍保留各自边界。Explorer 在 ElevenDE 内经过大幅修改和重构，因此原始上游部分与 ElevenDE 的 GPL 增量必须被区分。[1]
 
 Lindows 不自动执行系统清理、驱动卸载、驱动下载、系统任务创建、系统升级、UAC/PAM 改写或重启。蓝屏演示固定恢复桌面；UAC 仅为视觉预览；Windows Update 为无破坏预览；Copilot 凭据必须由用户自行配置。
+
+蓝屏演示、Windows Update Preview 与 Start 电源操作通过 `/usr/local/libexec/lindows-privileged-action` 这个固定功能调度器请求单一的 polkit 动作。调度器只接受 `bsod`、`update-preview`、`suspend`、`poweroff`、`reboot` 五个无参数动作；其中演示分支在调度器内部硬编码 `--restore` 或 `--no-reboot`。Live 的 `user` 仅对这一个动作免密，安装系统则保留 active-user 的标准 `auth_self` 桌面认证提示；不存在通用 `pkexec`、任意命令或宽泛 sudo 绕过。
 
 ## 维护者
 

@@ -46,18 +46,29 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--map", type=Path, required=True)
     parser.add_argument("--icons-root", type=Path, required=True)
+    parser.add_argument(
+        "--local-icons-root",
+        type=Path,
+        default=Path(__file__).resolve().parents[1] / "packages" / "elevende" / "local-icon-sources",
+        help="repository-local icon sources selected with @local/ in the mapping table",
+    )
     parser.add_argument("--destination", type=Path, required=True)
     args = parser.parse_args()
 
     entries = load_map(args.map)
     if not args.icons_root.is_dir():
         raise SystemExit(f"WindowsIcons root does not exist: {args.icons_root}")
+    if any(source.startswith("@local/") for _, source, _ in entries) and not args.local_icons_root.is_dir():
+        raise SystemExit(f"local icon root does not exist: {args.local_icons_root}")
     args.destination.mkdir(parents=True, exist_ok=True)
     count = 0
     for alias, relative_source, _component in entries:
-        source = args.icons_root / relative_source
+        if relative_source.startswith("@local/"):
+            source = args.local_icons_root / relative_source.removeprefix("@local/")
+        else:
+            source = args.icons_root / relative_source
         if not source.is_file():
-            raise SystemExit(f"mapped Windows icon is missing: {source}")
+            raise SystemExit(f"mapped icon is missing: {source}")
         for size in SIZES:
             convert(source, args.destination / f"{size}x{size}" / "apps" / f"{alias}.png", size)
             count += 1

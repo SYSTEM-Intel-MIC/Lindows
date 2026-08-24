@@ -40,22 +40,41 @@ old_shell = '''echo "elevende-session: starting shell"
 /usr/local/bin/elevende-shell >/tmp/elevende-shell.log 2>&1 &
 SHELL_PID=$!
 '''
-new_shell = '''echo "elevende-session: starting supervised shell"
-# Keep the shell independent from SAS/Openbox.  If its X11 process exits
-# unexpectedly, restart it instead of leaving the user on a grey root window
-# with only the SAS daemon still responsive.
-(
-    trap 'exit 0' INT TERM
-    while :; do
-        /usr/local/bin/elevende-shell >>/tmp/elevende-shell.log 2>&1 || true
-        sleep 1
-    done
-) &
+new_shell = '''echo "elevende-session: starting shell"
+# The shell owns the desktop, taskbar and desktop icons.  It must remain a
+# single long-lived process: restarting it from a tight loop during RandR
+# transitions repeatedly recreates the taskbar and can leave temporary blank
+# icon surfaces.  Exit diagnostics stay in /tmp/elevende-shell.log for the
+# session-level recovery path rather than inducing a restart storm here.
+/usr/local/bin/elevende-shell >/tmp/elevende-shell.log 2>&1 &
 SHELL_PID=$!
 '''
 if old_shell not in text:
     raise SystemExit("ElevenDE shell startup marker was not found")
 text = text.replace(old_shell, new_shell, 1)
+
+old_openbox = '''echo "elevende-session: starting Openbox ($RC_FILE)"
+openbox --config-file "$RC_FILE"
+rc=$?
+
+echo "elevende-session: Openbox exited ($rc), stopping session"
+'''
+new_openbox = '''# The display launcher distinguishes an intentional ElevenDE logout from an
+# unexpected session failure.  Clear a stale marker before Openbox starts.  The
+# SAS-only lindows-logout helper creates a new marker before it requests an
+# Openbox exit; normal crashes must stay unmarked and reach systemd recovery.
+LOGOUT_MARKER="$HOME/.cache/lindows-elevende-logout"
+mkdir -p "$HOME/.cache"
+rm -f "$LOGOUT_MARKER"
+echo "elevende-session: starting Openbox ($RC_FILE)"
+openbox --config-file "$RC_FILE"
+rc=$?
+
+echo "elevende-session: Openbox exited ($rc), stopping session"
+'''
+if old_openbox not in text:
+    raise SystemExit("ElevenDE Openbox logout preparation marker was not found")
+text = text.replace(old_openbox, new_openbox, 1)
 
 old_dbus = '''export DBUS_SESSION_BUS_ADDRESS
 export DBUS_SESSION_BUS_PID

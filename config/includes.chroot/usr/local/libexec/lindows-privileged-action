@@ -1,0 +1,28 @@
+#!/bin/sh
+# Fixed-function privileged dispatcher for Lindows desktop actions.
+# It deliberately accepts no command paths, no shell fragments and no extra
+# arguments.  PolicyKit authorizes this one program; every branch remains
+# explicitly allow-listed and the two visual demos are permanently safe.
+set -eu
+
+[ "$#" -eq 1 ] || exit 64
+case "$1" in
+    suspend)
+        exec /usr/bin/loginctl suspend
+        ;;
+    poweroff)
+        exec /usr/bin/loginctl poweroff
+        ;;
+    reboot)
+        exec /usr/bin/loginctl reboot
+        ;;
+    bsod)
+        exec /usr/local/sbin/lindows-bsod --show "Lindows 蓝屏演示（安全恢复模式）" --restore
+        ;;
+    update-preview)
+        exec /usr/lib/lindows-update-preview/windows_update_in_linux --no-reboot
+        ;;
+    *)
+        exit 64
+        ;;
+esac

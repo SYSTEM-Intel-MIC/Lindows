@@ -91,6 +91,10 @@ require_path 'usr/local/libexec/lindows-target-postinstall.sh'
 require_path 'usr/local/bin/lindows-installer'
 require_path 'usr/local/sbin/lindows-live-session-init'
 require_path 'usr/local/sbin/lindows-elevende-display'
+require_path 'usr/local/bin/lindows-power-action'
+require_path 'usr/local/bin/lindows-logout'
+require_path 'usr/local/libexec/lindows-privileged-action'
+require_path 'usr/share/polkit-1/actions/im.system-intel-mic.lindows.privileged-action.policy'
 require_path 'etc/systemd/system/lindows-elevende-display.service'
 require_path 'etc/systemd/system/graphical.target.wants/lindows-elevende-display.service'
 require_path 'usr/local/share/elevende-shell/icons/64x64/apps/lindows-installer.svg'
@@ -111,6 +115,26 @@ SESSION_SCRIPT="$WORK/elevende-session"
 cat_image_file 'usr/local/bin/elevende-session' "$SESSION_SCRIPT"
 grep -q 'LINDOWS-SESSION-POLICY' "$SESSION_SCRIPT"
 grep -q 'Live session bypasses the login gate' "$SESSION_SCRIPT"
+grep -q 'lindows-logout helper creates a new marker' "$SESSION_SCRIPT"
+POWER_BRIDGE="$WORK/lindows-power-action"
+cat_image_file 'usr/local/bin/lindows-power-action' "$POWER_BRIDGE"
+grep -q '^exec pkexec /usr/local/libexec/lindows-privileged-action "\$action"$' "$POWER_BRIDGE"
+LOGOUT_HELPER="$WORK/lindows-logout"
+cat_image_file 'usr/local/bin/lindows-logout' "$LOGOUT_HELPER"
+grep -q 'lindows-elevende-logout' "$LOGOUT_HELPER"
+PRIVILEGED_ACTION="$WORK/lindows-privileged-action"
+cat_image_file 'usr/local/libexec/lindows-privileged-action' "$PRIVILEGED_ACTION"
+grep -q -- '--restore' "$PRIVILEGED_ACTION"
+grep -q -- '--no-reboot' "$PRIVILEGED_ACTION"
+! grep -q '\$@' "$PRIVILEGED_ACTION"
+POLKIT_POLICY="$WORK/lindows-privileged-action.policy"
+cat_image_file 'usr/share/polkit-1/actions/im.system-intel-mic.lindows.privileged-action.policy' "$POLKIT_POLICY"
+grep -q 'id="im.system-intel-mic.lindows.privileged-action"' "$POLKIT_POLICY"
+grep -q '<allow_active>auth_self</allow_active>' "$POLKIT_POLICY"
+LIVE_POLKIT_RULE="$WORK/49-lindows-calamares.rules"
+cat_image_file 'etc/polkit-1/rules.d/49-lindows-calamares.rules' "$LIVE_POLKIT_RULE"
+grep -q 'im.system-intel-mic.lindows.privileged-action' "$LIVE_POLKIT_RULE"
+! grep -q 'org.freedesktop.policykit.exec' "$LIVE_POLKIT_RULE"
 
 # Verify the installed, hook-mutated Calamares settings rather than source
 # templates. A missing sequence entry recreates the historical module-load
@@ -184,5 +208,20 @@ grep -q '^Icon=lindows-store$' "$COMPONENT_DESKTOP"
 if command -v desktop-file-validate >/dev/null 2>&1; then
     desktop-file-validate "$COMPONENT_DESKTOP"
 fi
+
+# All Apps must not surface session/power helpers as regular applications.  This
+# validates the fully installed filesystem rather than trusting the source hook.
+for desktop_file in "$FULL_ROOT"/usr/share/applications/*.desktop "$FULL_ROOT"/usr/local/share/applications/*.desktop; do
+    [ -f "$desktop_file" ] || continue
+    if grep -Eqi \
+        '^(Name|Name\[zh_CN\]|GenericName|Comment)=.*(Shutdown|Shut Down|Power Off|Restart|Reboot|Log ?Out|Logoff|Logout|Suspend|Sleep|Hibernate|Lock Screen|Lock Session|关机|重启|注销|登出|睡眠|休眠|锁屏|锁定)' \
+        "$desktop_file" || \
+       grep -Eqi \
+        '^Exec=.*(systemctl[[:space:]]+(poweroff|reboot|suspend|hibernate)|loginctl[[:space:]]+(poweroff|reboot|suspend|hibernate|terminate-session|lock-session)|(^|[[:space:]])(poweroff|reboot|shutdown|logout|logoff|xscreensaver-command|dm-tool)[[:space:]])' \
+        "$desktop_file"; then
+        echo "final ISO still exposes a forbidden system-command desktop entry: ${desktop_file#$FULL_ROOT/}" >&2
+        exit 1
+    fi
+done
 
 printf 'Lindows 2.0 final ISO content validation passed: %s\n' "$ISO"

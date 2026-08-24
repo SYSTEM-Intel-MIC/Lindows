@@ -5,7 +5,7 @@ Xft.antialias: true
 Xft.hinting: true
 Xft.hintstyle: hintslight
 Xft.rgba: rgb
-XTerm*faceName: Noto Sans Mono CJK SC
+XTerm*faceName: Noto Sans CJK SC
 XTerm*faceSize: 11
-xterm*faceName: Noto Sans Mono CJK SC
+xterm*faceName: Noto Sans CJK SC
 xterm*faceSize: 11
