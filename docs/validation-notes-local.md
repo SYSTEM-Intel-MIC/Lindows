@@ -30,3 +30,11 @@ GitHub Actions 运行 `32686179382`（提交 `023b6b9`，分支 `lindows-2.0-int
 视觉诊断工件 `Lindows-2.0-qemu-visual-diagnostics-217` 同时包含 BIOS 与 UEFI 的 1280×800 帧。两帧均显示真实的 ElevenDE 浅色桌面、任务栏和原生浅色壁纸，不是黑屏或均匀灰屏；桌面上可见“此电脑”“主目录”“Registry Editor”“Microsoft Edge”“Lindows Terminal”和“Install Lindows”入口。该结果证明 BIOS/UEFI 图形启动门控通过，并确认 Edge、注册表编辑器、终端和安装器桌面快捷方式已被渲染出来。
 
 这组截图**不等同于完整交互回归**。由于当前主机的 EXT4 文件系统错误仍使大文件下载和本地虚拟机结果不可信，本轮没有把约 1.7 GB 的 LiveCD 工件下载到本机，也没有虚构 Calamares 真正落盘安装、安装后原生登录、Edge/BSOD/Task Scheduler/WinSAT/Store/Control Panel 的交互结果。因此当前状态更新为：**CI 构建与 BIOS/UEFI 视觉验证通过；健康环境中的安装和应用交互回归仍待完成，不宣称完整交付通过。**
+
+## 2026-08-24：启动滚屏、设备管理器浅色主题与 sudo/UAC 修复
+
+提交 `ca2b77e` 已推送到 `lindows-2.0-integration`，GitHub Actions 运行 `32696164185` 成功完成。BIOS 与 UEFI 视觉诊断帧均显示真实 ElevenDE 桌面、浅色壁纸、中文桌面入口和 Microsoft Edge 官方图标；没有出现黑屏或均匀灰屏。新的启动参数已从正常 BIOS/UEFI Live 项中移除 `splash`，保留安全图形项的 `nomodeset`，因此内核/systemd 启动过程可恢复可见滚屏；诊断帧只证明最终图形桌面可达，不能替代启动过程录像或串口日志验证。
+
+设备管理器在 Lindows 构建副本中将 Fyne 主题颜色固定到 `theme.VariantLight`，并继续通过统一组件适配器使用浅色 GTK/Qt 环境。sudo/UAC 采用不修改系统 `/usr/bin/sudo`、PAM 或 sudoers 的安全方案：交互终端的 `sudo` 别名调用 `lindows-sudo`，先执行原生 `/usr/bin/sudo -v` 校验当前用户密码，再显示 UAC 确认；用户取消、关闭窗口或 UI 失败时不会执行目标命令，确认后才调用未修改的 `/usr/bin/sudo`。
+
+当前主机仍未完成健康 VM 的真实落盘安装、安装后登录、设备管理器手工打开验证和 sudo/UAC 鼠标交互回归，因此不把这些项目虚构为已通过。当前可确认结论为：**代码静态检查通过，CI 构建通过，BIOS/UEFI 最终图形桌面视觉门控通过；完整健康 VM 交互验证仍待执行。**
