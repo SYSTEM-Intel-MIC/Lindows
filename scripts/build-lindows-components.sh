@@ -102,6 +102,7 @@ python3 "$ROOT/scripts/patch-elevende-lindows-component-icons.py" "$ELEV_SRC/she
 python3 "$ROOT/scripts/patch-elevende-lindows-menu.py" "$ELEV_SRC/shell/main.c"
 python3 "$ROOT/scripts/patch-elevende-lindows-actions.py" "$ELEV_SRC/shell/main.c" "$ELEV_SRC/wm/sas-config.json"
 python3 "$ROOT/scripts/patch-elevende-session-policy.py" "$ELEV_SRC/session/elevende-session"
+python3 "$ROOT/scripts/patch-elevende-lock-auth.py" "$ELEV_SRC/shell/lock.c"
 python3 "$ROOT/scripts/patch-elevende-icon-overlay-staging.py" "$ELEV_SRC/build-deb.sh"
 [ -d "$ROOT/packages/elevende/icons" ] || die "Lindows Windows 11 icon overlay is missing"
 rm -rf "$ELEV_SRC/assets/icons-lindows-overlay"
@@ -112,6 +113,7 @@ cp -a "$ROOT/packages/elevende/icons" "$ELEV_SRC/assets/icons-lindows-overlay"
 # The shell patch uses the RandR API directly; make the pinned upstream shell
 # link against libXrandr in the isolated component build.
 sed -i 's/x11 xft fontconfig freetype2 libpng/x11 xft fontconfig freetype2 libpng xrandr/g' "$ELEV_SRC/shell/Makefile"
+sed -i 's/$(LOCK_LIBS) -lcrypt/$(LOCK_LIBS) -lcrypt -lpam -lXrandr/' "$ELEV_SRC/shell/Makefile"
 
 log "building ElevenDE 3.5.1 from locked source revision"
 (

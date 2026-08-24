@@ -43,12 +43,10 @@ Lindows 不安装 LightDM。`lindows-elevende-display.service` 通过 Xorg/xinit
 | Copilot for Linux | 固定 v1.0.0 DEB / 上游声明 | 只下载二进制锁中 SHA-256 验证的 DEB；Live 提供受控 Electron 启动器。 | package 图标；无 API 密钥。 |
 | PeaZip | 固定 11.2.0 DEB / LGPL-3.0-or-later | 只下载二进制锁中 SHA-256 验证的 Qt6 DEB。 | ZIP 文件夹图标。 |
 | Activate Lindows | `203ee66e` / GPL-3.0 | `lindows-activation-watermark` C package。 | 视觉水印；不规避或改变任何软件许可。 |
-| Lindows Control | `2268136b` / MIT | `lindows-control`；Rust 1.95、固定 Cargo.lock。 | Control Panel 图标。 |
 | Troubleshooting | `124a743d` / MIT | `lindows-troubleshooting`；构建期 PySide6 → PyQt5 兼容导入。 | 信息图标。 |
 | UAC Preview | `288ac83a` / MIT | `lindows-uac-preview`；构建期禁用超时自动批准，并提供 `lindows-sudo` 交互包装器。 | 交互终端先由原生 `/usr/bin/sudo -v` 校验当前用户密码，再显示 UAC 确认；取消或 UI 失败均不执行命令。不安装 PAM 模块、不改 sudo 或 `/etc/pam.d`。 |
 | Lindows Defender | `0dcf5d50` / MIT | `lindows-defender` Python/Tk package。 | Defender 图标；不声明不存在的杀毒能力。 |
 | Sticky Keys | `511364af` / MIT | `lindows-sticky-keys` Python package，覆盖错误的上游 desktop Exec。 | Sticky Notes 图标；用户会话入口。 |
-| Task Scheduler | `86c27361` / LGPL-2.1 | `lindows-task-scheduler`，PyQt5 兼容、`croniter`、polkit。 | Tasks 图标；系统级操作仅走明确授权。 |
 | Windows Widgets | `5b923111` / MIT | `lindows-widgets` Python/PyQt5 package。 | Widgets 图标；不默认驻留启动。 |
 | Windows Commands | `5eac6c1d` / MIT | `lindows-windowshit` Rust package。 | Terminal 图标；所有命令使用 `lindows-*` 前缀，避免覆盖 Linux 命令。 |
 | WinSAT | `dc292e6c` / WTFPL | `lindows-winsat` Python package。 | 芯片图标；只按需运行。 |

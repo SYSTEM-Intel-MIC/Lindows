@@ -14,15 +14,14 @@ Copyright © 2026 **SYSTEM-Intel-MIC**。除文件另有说明外，Lindows 自�
 | Lindows Store | `264b3821b1f180201226e02003fa48d81ffee214` [15] | GPL-3.0-only | 独立 `lindows-store` DEB；仅使用系统 APT/polkit 路径，未内置第三方源或凭据。 |
 | Copilot for Linux、PeaZip | 固定 Release DEB | GPL-3.0；LGPL-3.0 | 二进制 URL 和 SHA-256 位于 `packages/binaries.lock.tsv`。Copilot 不预置 API 密钥。 |
 | activate-linux | `203ee66e8e2a614266d59921d5493ea681b11a74` [2] | GPL-3.0 | 仅作为“Activate Lindows”视觉水印工具，不规避或声明第三方软件许可。 |
-| Lindows_Control、Lindows-Troubleshooting | 固定提交 [3] [4] | MIT | 以独立 DEB 提供，采用 Lindows 控制面板和疑难解答入口。 |
-| Linux_uac | `288ac83acfe5a2cc0f2a3ac02cfd5d03dc92e62e` [5] | MIT | 仅打包**非授权预览界面**；不安装上游 PAM 模块，不编辑 PAM 配置，并移除独立模式的超时自动接受。 |
-| LinuxDefender、Linux-Sticky-keys | 固定提交 [6] [7] | MIT | 用户显式启动的桌面工具；不在安装时写入 root、PAM 或自动启动配置。 |
-| taskschd4Linux | `86c27361a09745cf0bb67aa2cfffe6d802d62d32` [8] | LGPL-2.1 | 用户任务不提权；系统任务保留显式 polkit/sudo 授权。 |
-| WindowsWidget-for-Linux | `5b92311174dfe3236b995ced6aeae73487ef313c` [9] | MIT | 用户会话组件，不在 Live 会话默认自动启动。 |
-| windowshit | `5eac6c1d8e3d126bbbc03c76d11edd9e2badc718` [10] | MIT | 命令以 `lindows-` 前缀安装，避免覆盖 Debian 原生命令；涉及电源的命令仍受系统权限与确认限制。 |
-| WinSAT | `dc292e6c34d089f9b5718d44744d54a40dbb818e` [11] | WTFPL | 按需运行的基准测试，不自动启动。 |
-| windows_update_in_linux | `c82ad6005f0756ec1013f1e1acd798711db03291` [12] | MIT | 仅提供无破坏性预览入口，固定 `--no-reboot`；系统实际更新仍由 Debian apt 和显式用户授权处理。 |
-| linux-winver、FeedbackHub | 固定提交 [13] [14] | GPL-3.0 | 作为“About Lindows”和反馈中心独立 DEB 构建，并保留 GPL 源码与许可证。 |
+| Lindows-Troubleshooting | 固定提交 [3] | MIT | 以独立 DEB 提供疑难解答入口。 |
+| Linux_uac | `288ac83acfe5a2cc0f2a3ac02cfd5d03dc92e62e` [4] | MIT | 仅打包**非授权预览界面**；不安装上游 PAM 模块，不编辑 PAM 配置，并移除独立模式的超时自动接受。 |
+| LinuxDefender、Linux-Sticky-keys | 固定提交 [5] [6] | MIT | 用户显式启动的桌面工具；不在安装时写入 root、PAM 或自动启动配置。 |
+| WindowsWidget-for-Linux | `5b92311174dfe3236b995ced6aeae73487ef313c` [7] | MIT | 用户会话组件，不在 Live 会话默认自动启动。 |
+| windowshit | `5eac6c1d8e3d126bbbc03c76d11edd9e2badc718` [8] | MIT | 命令以 `lindows-` 前缀安装，避免覆盖 Debian 原生命令；涉及电源的命令仍受系统权限与确认限制。 |
+| WinSAT | `dc292e6c34d089f9b5718d44744d54a40dbb818e` [9] | WTFPL | 按需运行的基准测试，不自动启动。 |
+| windows_update_in_linux | `c82ad6005f0756ec1013f1e1acd798711db03291` [10] | MIT | 仅提供无破坏性预览入口，固定 `--no-reboot`；系统实际更新仍由 Debian apt 和显式用户授权处理。 |
+| linux-winver、FeedbackHub | 固定提交 [11] [12] | GPL-3.0 | 作为“About Lindows”和反馈中心独立 DEB 构建，并保留 GPL 源码与许可证。 |
 | windowsuninstaller/mmclinux | 用户指定地址在审查时不可获取 | 未知 | GitHub API 返回 404，且未找到可验证替代公开来源，因此**未被集成**。提供可审计 URL 与许可证后才可加入。 |
 
 ## ElevenDE 上游边界
@@ -45,17 +44,15 @@ Lindows 自有源码、配置和构建脚本在本仓库公开。`packages/sourc
 
 [1]: https://github.com/SYSTEM-Intel-MIC/ElevenDE/tree/b4b97ca4fa0ac46235dd8a20b508ff5c9bdf1026 "ElevenDE 3.5.1 fixed source"
 [2]: https://github.com/MrGlockenspiel/activate-linux "activate-linux"
-[3]: https://github.com/BobbyChengCN0518/Lindows_Control "Lindows Control"
-[4]: https://github.com/BobbyChengCN0518/Lindows-Troubleshooting "Lindows Troubleshooting"
-[5]: https://github.com/WenAnrong/Linux_uac "Linux UAC"
-[6]: https://github.com/xusk1234/LinuxDefender "LinuxDefender"
-[7]: https://github.com/xusk1234/Linux-Sticky-keys "Linux Sticky Keys"
-[8]: https://github.com/1ctrl-cv/taskschd4Linux "taskschd4Linux"
-[9]: https://github.com/phillin-liu/WindowsWidget-for-Linux "WindowsWidget for Linux"
-[10]: https://github.com/HelloAIXIAOJI/windowshit "windowshit"
-[11]: https://github.com/WhatDamon/WinSAT "WinSAT"
-[12]: https://github.com/WenAnrong/windows_update_in_linux "windows update in linux"
-[13]: https://github.com/DeepslateQAQ/linux-winver "linux-winver"
-[14]: https://github.com/com-in/FeedbackHub-For-Linux "FeedbackHub for Linux"
+[3]: https://github.com/BobbyChengCN0518/Lindows-Troubleshooting "Lindows Troubleshooting"
+[4]: https://github.com/WenAnrong/Linux_uac "Linux UAC"
+[5]: https://github.com/xusk1234/LinuxDefender "LinuxDefender"
+[6]: https://github.com/xusk1234/Linux-Sticky-keys "Linux Sticky Keys"
+[7]: https://github.com/phillin-liu/WindowsWidget-for-Linux "WindowsWidget for Linux"
+[8]: https://github.com/HelloAIXIAOJI/windowshit "windowshit"
+[9]: https://github.com/WhatDamon/WinSAT "WinSAT"
+[10]: https://github.com/WenAnrong/windows_update_in_linux "windows update in linux"
+[11]: https://github.com/DeepslateQAQ/linux-winver "linux-winver"
+[12]: https://github.com/com-in/FeedbackHub-For-Linux "FeedbackHub for Linux"
 [15]: https://github.com/SYSTEM-Intel-MIC/linux-store "linux-store"
 [16]: https://github.com/HaydenReeve/WindowsIcons "WindowsIcons"

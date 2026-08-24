@@ -80,7 +80,6 @@ jobs:
           ( cd artifacts/packages && sha256sum *.deb > SHA256SUMS )
           python3 scripts/write-lindows-build-manifest.py
           test -f artifacts/packages/elevende_3.5.1_amd64.deb
-          test -f artifacts/packages/lindows-control_1.1.1+lindows2_amd64.deb
           test -f artifacts/packages/lindows-store_2.3.0+lindows2_amd64.deb
           test -f artifacts/packages/feedbackhub_1.0.0+lindows2_amd64.deb
           test -f artifacts/packages/SHA256SUMS

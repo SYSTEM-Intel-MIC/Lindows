@@ -6,12 +6,10 @@ regedit	https://github.com/heyManNice/regedit.git	0e3de3dcfbf1aca0fbc8dda2be307a
 bsod	https://github.com/heyManNice/bsod.git	45757f64e6fa2983e92382a2ba8e47b1685d92f9	upstream-license	component-safe-wrapper
 device-manager	https://github.com/daimile2/Device-Manager-But-Linux.git	e7e8238cc72a08ce0302e4ffbd529838f49fbed4	upstream-license	component
 activate-linux	https://github.com/MrGlockenspiel/activate-linux.git	203ee66e8e2a614266d59921d5493ea681b11a74	GPL-3.0	component
-lindows-control	https://github.com/BobbyChengCN0518/Lindows_Control.git	2268136bb19f0466a48a1bea272466d233975e49	MIT	component
 lindows-troubleshooting	https://github.com/BobbyChengCN0518/Lindows-Troubleshooting.git	124a743dfd1a1fc895e73ee9ee0d3c27536f4815	MIT	component
 linux-uac	https://github.com/WenAnrong/Linux_uac.git	288ac83acfe5a2cc0f2a3ac02cfd5d03dc92e62e	MIT	component-preview-only
 linux-defender	https://github.com/xusk1234/LinuxDefender.git	0dcf5d504ac094def84a589152f123e5e1d55129	MIT	component
 linux-sticky-keys	https://github.com/xusk1234/Linux-Sticky-keys.git	511364af1b4dea7066c4af5e3daa94ee4416019b	MIT	component
-taskschd4linux	https://github.com/1ctrl-cv/taskschd4Linux.git	86c27361a09745cf0bb67aa2cfffe6d802d62d32	LGPL-2.1	component
 windows-widgets	https://github.com/phillin-liu/WindowsWidget-for-Linux.git	5b92311174dfe3236b995ced6aeae73487ef313c	MIT	component
 windowshit	https://github.com/HelloAIXIAOJI/windowshit.git	5eac6c1d8e3d126bbbc03c76d11edd9e2badc718	MIT	component
 winsat	https://github.com/WhatDamon/WinSAT.git	dc292e6c34d089f9b5718d44744d54a40dbb818e	WTFPL	component

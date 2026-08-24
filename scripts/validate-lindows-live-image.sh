@@ -148,12 +148,10 @@ for path in \
     usr/local/libexec/lindows-component-launch \
     usr/share/themes/ElevenDE/gtk-3.0/gtk.css \
     usr/bin/lindows-store \
-    usr/bin/lindows-control \
     usr/bin/lindows-troubleshooting \
     usr/bin/lindows-uac-preview \
     usr/bin/lindows-defender \
     usr/bin/lindows-sticky-keys \
-    usr/bin/taskschd \
     usr/bin/lindows-widgets \
     usr/bin/lindows-windowshit \
     usr/bin/winsat \
@@ -171,8 +169,8 @@ done
 for icon in \
     linux-pcmanager linux-regedit lindows-bsod lindows-device-manager \
     microsoft-edge lindows-store copilot-for-linux peazip lindows-activation-watermark \
-    lindows-control lindows-troubleshooting lindows-uac-preview lindows-defender \
-    lindows-sticky-keys lindows-task-scheduler lindows-widgets lindows-windowshit \
+    lindows-troubleshooting lindows-uac-preview lindows-defender \
+    lindows-sticky-keys lindows-widgets lindows-windowshit \
     lindows-winsat lindows-update-preview lindows-winver feedbackhub; do
     require_path "usr/local/share/elevende-shell/icons/64x64/apps/${icon}.png"
 done

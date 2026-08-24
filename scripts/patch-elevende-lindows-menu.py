@@ -40,7 +40,15 @@ new_filter = '''        if (!ex[0]) continue;
             ci_strstr(ex, "lindows-power-action") || ci_strstr(ex, "shutdown") ||
             ci_strstr(ex, "poweroff") || ci_strstr(ex, "reboot") ||
             ci_strstr(ex, "suspend") || ci_strstr(ex, "logout") ||
-            ci_strstr(ex, "lockscreen"))
+            ci_strstr(ex, "lockscreen") || ci_strstr(de->d_name, "shutdown") ||
+            ci_strstr(de->d_name, "restart") || ci_strstr(de->d_name, "reboot") ||
+            ci_strstr(de->d_name, "logout") || ci_strstr(de->d_name, "logoff") ||
+            ci_strstr(de->d_name, "lockscreen") || !strcmp(nm, "注销") ||
+            !strcmp(nm, "关机") || !strcmp(nm, "重启") || !strcmp(nm, "睡眠") ||
+            !strcmp(nm, "锁屏") || !strcmp(nm, "锁定") ||
+            ci_strstr(nm, "shutdown") || ci_strstr(nm, "restart") ||
+            ci_strstr(nm, "reboot") || ci_strstr(nm, "logout") ||
+            ci_strstr(nm, "logoff") || ci_strstr(nm, "lockscreen"))
             continue;
         App *a = &apps[napps];
 '''

@@ -11,7 +11,7 @@ compgen -G "$PKGS/*.deb" >/dev/null || { echo "no component DEBs" >&2; exit 1; }
     cd "$PKGS"
     sha256sum -c SHA256SUMS
 )
-for required in elevende_3.5.1_amd64.deb lindows-store_2.3.0+lindows2_amd64.deb lindows-control_1.1.1+lindows2_amd64.deb feedbackhub_1.0.0+lindows2_amd64.deb; do
+for required in elevende_3.5.1_amd64.deb lindows-store_2.3.0+lindows2_amd64.deb feedbackhub_1.0.0+lindows2_amd64.deb; do
     [ -f "$PKGS/$required" ] || { echo "missing required component package: $required" >&2; exit 1; }
 done
 

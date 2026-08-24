@@ -27,8 +27,13 @@ old_check = '''static int check_pw(const char *u, const char *p) {
     const char *hash = pe->pw_passwd;
     if (!hash || !*hash) return 1;                   /* no password set */
     if (!strcmp(hash, "x") || !strcmp(hash, "*")) {
+        /* Debian keeps the authoritative value in shadow.  An empty
+           `sp_pwdp` is a valid no-password account and must remain empty;
+           the previous conditional left `hash` as literal "x" and rejected
+           an otherwise valid empty login. */
         struct spwd *sp = getspnam(u);
-        if (sp && sp->sp_pwdp && *sp->sp_pwdp) hash = sp->sp_pwdp;
+        if (!sp || !sp->sp_pwdp) return -1;
+        hash = sp->sp_pwdp;
     }
     if (!hash || !*hash) return 1;
     if (hash[0] == '!' || hash[0] == '*') return 0;  /* locked account */
@@ -53,7 +58,7 @@ static int lindows_pam_conversation(int n, const struct pam_message **msg,
                 return PAM_CONV_ERR;
             }
         } else if (msg[i]->msg_style == PAM_PROMPT_ECHO_ON) {
-            answers[i].resp = strdup(user ? user : "");
+            answers[i].resp = strdup(login_user[0] ? login_user : "user");
             if (!answers[i].resp) {
                 for (int j = 0; j <= i; j++) free(answers[j].resp);
                 free(answers);
@@ -96,8 +101,77 @@ new_user = '''    /* LightDM may leave USER set to a previous/autologin account.
     user = session_pw ? session_pw->pw_name : getenv("USER");
     if (!user || !*user) user = "kali";
 '''
-if old_user not in text:
+if old_user in text:
+    text = text.replace(old_user, new_user, 1)
+elif 'resolve_user_identity();' not in text:
     raise SystemExit("lock.c user-resolution marker not found")
-text = text.replace(old_user, new_user, 1)
+
+# The lock screen must follow RandR changes while it is open.  It owns a
+# full-screen override-redirect window plus screen-sized wallpaper/frame
+# pixmaps, so a simple repaint on the old geometry leaves stale black/grey
+# borders after Settings changes resolution.
+include_marker = '#include <X11/cursorfont.h>\n'
+if include_marker not in text:
+    raise SystemExit("lock.c cursorfont include marker not found")
+if '#include <X11/extensions/Xrandr.h>' not in text:
+    text = text.replace(include_marker, include_marker + '#include <X11/extensions/Xrandr.h>\n', 1)
+
+globals_marker = 'static int      scr_w, scr_h;\n'
+if globals_marker not in text:
+    raise SystemExit("lock.c geometry globals marker not found")
+if 'static int      rr_event_base = -1;' not in text:
+    text = text.replace(globals_marker, globals_marker + 'static int      rr_event_base = -1;\n', 1)
+
+main_marker = 'int main(int argc, char **argv) {\n'
+resize_helper = '''static void rebuild_screen_geometry(void) {
+    int new_w = XWidthOfScreen(ScreenOfDisplay(dpy, scr));
+    int new_h = XHeightOfScreen(ScreenOfDisplay(dpy, scr));
+    if (new_w < 1 || new_h < 1 || (new_w == scr_w && new_h == scr_h)) return;
+    scr_w = new_w;
+    scr_h = new_h;
+    XResizeWindow(dpy, win, (unsigned)scr_w, (unsigned)scr_h);
+    if (wall_pm) { XFreePixmap(dpy, wall_pm); wall_pm = None; }
+    if (frame_pm) { XFreePixmap(dpy, frame_pm); frame_pm = None; }
+    frame_pm = XCreatePixmap(dpy, win, (unsigned)scr_w, (unsigned)scr_h,
+                             DefaultDepth(dpy, scr));
+    load_wallpaper();
+    caret_visible = 1;
+    paint();
+    XFlush(dpy);
+}
+
+'''
+if 'static void rebuild_screen_geometry(void)' not in text:
+    if main_marker not in text:
+        raise SystemExit("lock.c main marker not found")
+    text = text.replace(main_marker, resize_helper + main_marker, 1)
+
+root_select = '    bgc    = XCreateGC(dpy, root, 0, NULL);\n'
+root_select_new = '''    bgc    = XCreateGC(dpy, root, 0, NULL);
+    XSelectInput(dpy, root, StructureNotifyMask);
+    int rr_error_base = 0;
+    if (XRRQueryExtension(dpy, &rr_event_base, &rr_error_base))
+        XRRSelectInput(dpy, root, RRScreenChangeNotifyMask);
+'''
+if root_select_new not in text:
+    if root_select not in text:
+        raise SystemExit("lock.c root event-selection marker not found")
+    text = text.replace(root_select, root_select_new, 1)
+
+event_marker = '            XNextEvent(dpy, &ev);\n'
+event_new = '''            XNextEvent(dpy, &ev);
+            if ((ev.type == ConfigureNotify && ev.xconfigure.window == root) ||
+                (rr_event_base >= 0 && ev.type == rr_event_base + RRScreenChangeNotify)) {
+                if (rr_event_base >= 0 && ev.type == rr_event_base + RRScreenChangeNotify)
+                    XRRUpdateConfiguration(&ev);
+                rebuild_screen_geometry();
+                continue;
+            }
+'''
+if event_new not in text:
+    if event_marker not in text:
+        raise SystemExit("lock.c event-loop marker not found")
+    text = text.replace(event_marker, event_new, 1)
+
 path.write_text(text)
 print(f"patched {path}")

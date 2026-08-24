@@ -115,26 +115,6 @@ install_desktop "$STAGE" "lindows-activation-watermark.desktop" "Activate Lindow
 install_license "$SRC" "$STAGE" "lindows-activation-watermark"
 make_deb "lindows-activation-watermark" "1.0.0+lindows2" "libc6, libcairo2, libconfig9, libx11-6, libxi6" "$STAGE" "Lindows activation watermark visual component"
 
-if [ "${LINDOWS_SKIP_RUST_COMPONENTS:-0}" != "1" ]; then
-log "building Lindows Control"
-SRC="$WORK/lindows-control"; source_locked lindows-control "$SRC"
-python3 "$ROOT/scripts/patch-lindows-component-sources.py" control "$SRC"
-cargo build --manifest-path "$SRC/Cargo.toml" --release --locked
-STAGE="$WORK/pkg-lindows-control"
-install -Dm755 "$SRC/target/release/Lindows_Control" "$STAGE/usr/lib/lindows-control/lindows-control"
-install -d "$STAGE/usr/lib/lindows-control"
-cp -a "$SRC/images" "$SRC/lang" "$STAGE/usr/lib/lindows-control/"
-[ -f "$SRC/src/STXIHEI.TTF" ] && install -Dm644 "$SRC/src/STXIHEI.TTF" "$STAGE/usr/lib/lindows-control/STXIHEI.TTF"
-install -Dm755 /dev/stdin "$STAGE/usr/bin/lindows-control" <<'SH'
-#!/bin/sh
-cd /usr/lib/lindows-control
-exec ./lindows-control "$@"
-SH
-install_desktop "$STAGE" "lindows-control.desktop" "Control Panel" "lindows-control" "preferences-system" "Settings;System;"
-install_license "$SRC" "$STAGE" "lindows-control"
-make_deb "lindows-control" "1.1.1+lindows2" "libc6, libgl1, libx11-6, libxkbcommon0" "$STAGE" "Lindows Control Panel"
-fi
-
 log "packaging Lindows Troubleshooting through PyQt5 compatibility binding"
 SRC="$WORK/lindows-troubleshooting"; source_locked lindows-troubleshooting "$SRC"
 STAGE="$WORK/pkg-lindows-troubleshooting"
@@ -283,24 +263,6 @@ SH
 install_desktop "$STAGE" "lindows-sticky-keys.desktop" "Sticky Keys" "preferences-desktop-accessibility" "preferences-desktop-accessibility" "Settings;Accessibility;"
 install_license "$SRC" "$STAGE" "lindows-sticky-keys"
 make_deb "lindows-sticky-keys" "1.0.1+lindows3" "python3, python3-tk, x11-xkb-utils" "$STAGE" "Lindows Sticky Keys accessibility preferences"
-
-log "packaging Task Scheduler through PyQt5 compatibility binding"
-SRC="$WORK/taskschd4linux"; source_locked taskschd4linux "$SRC"
-python3 "$ROOT/scripts/patch-lindows-component-sources.py" task-scheduler "$SRC"
-STAGE="$WORK/pkg-lindows-task-scheduler"
-install -d "$STAGE/usr/lib/lindows-task-scheduler"
-cp -a "$SRC/ltask" "$STAGE/usr/lib/lindows-task-scheduler/"
-install -Dm644 "$SRC/main.py" "$STAGE/usr/lib/lindows-task-scheduler/main.py"
-# The Lindows source-copy patch supplies a single PyQt5 binding shim; do not
-# apply broad text substitutions that can corrupt already-correct signal names.
-install -Dm755 /dev/stdin "$STAGE/usr/bin/taskschd" <<'SH'
-#!/bin/sh
-cd /usr/lib/lindows-task-scheduler
-exec python3 main.py "$@"
-SH
-install_desktop "$STAGE" "lindows-task-scheduler.desktop" "Task Scheduler" "taskschd" "appointment-new" "System;Utility;"
-install_license "$SRC" "$STAGE" "lindows-task-scheduler"
-make_deb "lindows-task-scheduler" "1.0.1+lindows3" "python3, python3-pyqt6, python3-croniter, policykit-1" "$STAGE" "Windows-style task scheduler for Lindows"
 
 log "packaging Widgets"
 SRC="$WORK/windows-widgets"; source_locked windows-widgets "$SRC"

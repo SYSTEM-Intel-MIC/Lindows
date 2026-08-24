@@ -55,164 +55,53 @@ def patch_widgets(root: Path) -> None:
         "        screen = self.app.primaryScreen().geometry()",
         "widgets first-run autostart patch",
     )
+    need_replace(
+        path,
+        "from PyQt5.QtCore import Qt, QObject, QEvent, QTimer, pyqtSignal\n",
+        "from PyQt5.QtCore import Qt, QObject, QEvent, QTimer, pyqtSignal\n"
+        "from PyQt5.QtGui import QCursor\n",
+        "widgets cursor import",
+    )
+    need_replace(
+        path,
+        "        self.app.screenAdded.connect(lambda _s: self._build_edge_strips())\n",
+        "        self._screen_ids = set()\n"
+        "        self._screen_layout_timer = QTimer(self)\n"
+        "        self._screen_layout_timer.setSingleShot(True)\n"
+        "        self._screen_layout_timer.timeout.connect(self._refresh_screen_layout)\n"
+        "        self._watch_screen_geometry()\n"
+        "        self.app.screenAdded.connect(lambda _s: self._schedule_screen_layout_refresh())\n"
+        "        self.app.screenRemoved.connect(lambda _s: self._schedule_screen_layout_refresh())\n",
+        "widgets screen layout watcher",
+    )
+    need_replace(
+        path,
+        "    def _build_edge_strips(self):\n",
+        '''    def _watch_screen_geometry(self):
+        """Subscribe once per QScreen so RandR geometry changes rebuild hotzones."""
+        for sc in self.app.screens():
+            key = id(sc)
+            if key in self._screen_ids:
+                continue
+            self._screen_ids.add(key)
+            sc.geometryChanged.connect(lambda _geo: self._schedule_screen_layout_refresh())
 
+    def _schedule_screen_layout_refresh(self):
+        # XRandR may emit several geometry changes while Settings applies a mode.
+        # Coalesce them so no stale mid-screen strip remains between events.
+        self._screen_layout_timer.start(75)
 
-def patch_task_scheduler(root: Path) -> None:
-    path = root / "ltask" / "qt.py"
-    text = path.read_text()
-    # Task Scheduler uses Qt6-only enums (AlignmentFlag, ItemDataRole,
-    # DialogCode and StandardButton). Debian provides PyQt6; preserve the
-    # upstream fallback instead of applying a lossy PyQt5 rewrite.
-    if "from PyQt6 import QtCore, QtGui, QtWidgets" not in text:
-        raise SystemExit("task scheduler requires its upstream PyQt6 fallback")
+    def _refresh_screen_layout(self):
+        self._watch_screen_geometry()
+        screen = self.app.screenAt(QCursor.pos()) or self.app.primaryScreen()
+        if screen is not None:
+            self._screen = screen.geometry()
+            self.panel.set_screen(self._screen)
+        self._build_edge_strips()
 
-
-def patch_control(root: Path) -> None:
-    config = root / "src" / "config.rs"
-    need_replace(
-        config,
-        'cmd_template: "gnome-control-center {panel}".to_string(),',
-        'cmd_template: "elevende-settings --page {panel}".to_string(),',
-        "control default settings route",
-    )
-    app = root / "src" / "app.rs"
-    need_replace(
-        app,
-        'let config_path = PathBuf::from("config.json");',
-        'let config_path = std::env::var_os("XDG_CONFIG_HOME")\n'
-        '            .map(PathBuf::from)\n'
-        '            .unwrap_or_else(|| PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| ".".to_string())).join(".config"))\n'
-        '            .join("lindows-control").join("config.json");\n'
-        '        if let Some(parent) = config_path.parent() { let _ = std::fs::create_dir_all(parent); }',
-        "control writable config path",
-    )
-    need_replace(
-        app,
-        'self.dark_mode = config.dark_mode;',
-        'self.dark_mode = false; // Lindows is intentionally light-only.',
-        "control force light state",
-    )
-    need_replace(
-        app,
-        '''                    let icon1 = if self.show_icons { "🖥️ " } else { "" };
-                    let icon2 = if self.show_icons { "🌐 " } else { "" };
-                    let icon3 = if self.show_icons { "📦 " } else { "" };
-                    let icon4 = if self.show_icons { "👤 " } else { "" };
-                    let icon5 = if self.show_icons { "⚙️ " } else { "" };
+    def _build_edge_strips(self):
 ''',
-        '''                    // egui has no bundled color-emoji font in the Debian
-                    // build. Keep these controls text-stable; their official
-                    // Windows icons are supplied at shell/menu/titlebar level.
-                    let icon1 = "";
-                    let icon2 = "";
-                    let icon3 = "";
-                    let icon4 = "";
-                    let icon5 = "";
-''',
-        "control unsupported emoji button icons",
-    )
-    need_replace(
-        app,
-        'let label = if self.show_icons { "🔹 " } else { "" };',
-        'let label = "";',
-        "control unsupported custom-button emoji",
-    )
-    need_replace(
-        app,
-        'let settings_label = if self.show_icons { "⚙️ " } else { "" };',
-        'let settings_label = "";',
-        "control unsupported settings emoji",
-    )
-    need_replace(
-        app,
-        '''        let style = if self.dark_mode {
-            egui::Style {
-                visuals: egui::Visuals::dark(),
-                ..Default::default()
-            }
-        } else {
-            egui::Style {
-                visuals: egui::Visuals::light(),
-                ..Default::default()
-            }
-        };
-''',
-        '''        let style = egui::Style {
-            visuals: egui::Visuals::light(),
-            ..Default::default()
-        };
-''',
-        "control light visuals",
-    )
-    need_replace(
-        app,
-        '''                    // 主题
-                    ui.horizontal(|ui| {
-                        ui.label(format!("{}:", self.tr("settings_theme")));
-                        let label = if self.dark_mode {
-                            self.tr("settings_theme_dark")
-                        } else {
-                            self.tr("settings_theme_light")
-                        };
-                        if ui.button(label).clicked() {
-                            self.dark_mode = !self.dark_mode;
-                            self.save_config();
-                        }
-                    });
-''',
-        '''                    // Lindows is intentionally light-only.
-                    ui.horizontal(|ui| {
-                        ui.label(format!("{}:", self.tr("settings_theme")));
-                        ui.label(self.tr("settings_theme_light"));
-                    });
-''',
-        "control light-only theme control",
-    )
-    commands = root / "src" / "commands.rs"
-    need_replace(
-        commands,
-        '''pub fn open_linux_settings(panel_type: &str, template: &str) {
-    let is_kde = template.contains("systemsettings") || template.contains("kcmshell");
-
-    let panel_arg = if is_kde {
-        match panel_type {
-            "system" => "kcm_systeminformation",
-            "network" => "kcm_networkmanagement",
-            "applications" => "",      // 打开主界面
-            "users" => "kcm_users",
-            _ => "",
-        }
-    } else {
-        match panel_type {
-            "" => "",
-            "system" => "",
-            "network" => "network",
-            "applications" => "applications",
-            "users" => "users",
-            _ => "",
-        }
-    };
-
-    let cmd = template.replace("{panel}", panel_arg).trim().to_string();
-''',
-        '''pub fn open_linux_settings(panel_type: &str, template: &str) {
-    // ElevenDE owns the actual configurable pages.  Do not invoke GNOME/KDE
-    // control centers that are intentionally absent from Lindows.
-    let panel_arg = match panel_type {
-        "system" => "about",
-        "network" => "network",
-        "applications" => "defaults",
-        "users" => "users",
-        _ => "home",
-    };
-    let route = if template.trim().is_empty() {
-        "elevende-settings --page {panel}"
-    } else {
-        template
-    };
-    let cmd = route.replace("{panel}", panel_arg).trim().to_string();
-''',
-        "control ElevenDE routing",
+        "widgets screen layout refresh methods",
     )
 
 
@@ -232,8 +121,6 @@ root = Path(root_text)
 patchers = {
     "store": patch_store,
     "widgets": patch_widgets,
-    "task-scheduler": patch_task_scheduler,
-    "control": patch_control,
     "activation": patch_activation,
 }
 try:

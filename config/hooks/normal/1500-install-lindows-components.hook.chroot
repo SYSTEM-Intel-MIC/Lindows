@@ -51,15 +51,13 @@ write_component_entry linux-pcmanager.desktop "Lindows PC Manager" "Lindows 电�
 write_component_entry linux-regedit.desktop "注册表编辑器" "注册表编辑器" linux-regedit "$ADAPTER linux-regedit" "System;Settings;"
 write_component_entry lindows-device-manager.desktop "Device Manager" "设备管理器" lindows-device-manager "$ADAPTER devmgr" "System;Settings;HardwareSettings;"
 write_component_entry lindows-store.desktop "Lindows Store" "Lindows 商店" lindows-store "$ADAPTER lindows-store" "System;Settings;"
-write_component_entry copilot-for-linux.desktop "Copilot for Linux" "Linux Copilot" copilot-for-linux "$ADAPTER \"/opt/Copilot For Linux/copilot-for-linux\" %U" "Utility;"
+write_component_entry copilot-for-linux.desktop "Copilot for Linux" "Linux Copilot" copilot-for-linux "$ADAPTER /usr/local/bin/lindows-copilot %U" "Utility;"
 write_component_entry peazip.desktop "PeaZip" "PeaZip 压缩软件" peazip "$ADAPTER peazip %F" "Utility;Archiving;"
 write_component_entry lindows-activation-watermark.desktop "Activate Lindows" "激活 Lindows" lindows-activation-watermark "$ADAPTER lindows-activation-watermark" "Settings;"
-write_component_entry lindows-control.desktop "Lindows Control Panel" "Lindows 控制面板" lindows-control "$ADAPTER lindows-control" "Settings;System;"
 write_component_entry lindows-troubleshooting.desktop "Lindows Troubleshooting" "Lindows 疑难解答" lindows-troubleshooting "$ADAPTER lindows-troubleshooting" "Settings;System;"
 write_component_entry lindows-uac-preview.desktop "User Account Control Preview" "用户账户控制预览" lindows-uac-preview "$ADAPTER lindows-uac-preview" "System;"
 write_component_entry lindows-defender.desktop "Lindows Defender" "Lindows Defender" lindows-defender "$ADAPTER lindows-defender" "System;"
 write_component_entry lindows-sticky-keys.desktop "Sticky Keys" "粘滞键" lindows-sticky-keys "$ADAPTER lindows-sticky-keys" "Settings;Accessibility;"
-write_component_entry lindows-task-scheduler.desktop "Task Scheduler" "任务计划程序" lindows-task-scheduler "$ADAPTER taskschd" "System;Utility;"
 write_component_entry lindows-widgets.desktop "Windows Widgets" "Windows 小组件" lindows-widgets "$ADAPTER lindows-widgets" "Utility;"
 write_component_entry lindows-windowshit.desktop "终端" "终端" lindows-windowshit "$ADAPTER lindows-windowshit" "System;Utility;"
 write_component_entry lindows-winsat.desktop "Windows Experience Index" "Windows 体验指数" lindows-winsat "$ADAPTER winsat" "System;Utility;"
@@ -94,13 +92,11 @@ install -Dm644 /etc/skel/Desktop/Microsoft\ Edge.desktop \
 # package-provided alternatives whose different Exec values would otherwise
 # bypass Shell de-duplication and appear as duplicate All Apps icons.
 rm -f /usr/share/applications/lindows-sticky-keys.desktop \
-      /usr/share/applications/lindows-control.desktop \
       /usr/share/applications/lindows-store.desktop \
       /usr/share/applications/lindows-defender.desktop \
       /usr/share/applications/lindows-uac-preview.desktop \
       /usr/share/applications/lindows-update-preview.desktop \
       /usr/share/applications/lindows-widgets.desktop \
-      /usr/share/applications/taskschd.desktop \
       /usr/share/applications/widget-panel.desktop \
       /usr/share/applications/activate-linux.desktop
 
@@ -127,9 +123,9 @@ Lindows 2.0 bundled components
 - Lindows Store, with its APT-backed package workflow and ElevenDE integration
 - Copilot for Linux 1.0.0 amd64 DEB (SHA-256 verified; no API key)
 - PeaZip 11.2.0 Qt6 official DEB
-- Activate Lindows watermark, Control Panel and Troubleshooting
+- Activate Lindows watermark and Troubleshooting
 - User Account Control Preview (PAM integration disabled)
-- Lindows Defender, Sticky Keys, Task Scheduler and Widgets
+- Lindows Defender, Sticky Keys and Widgets
 - Namespaced Windows command compatibility tools and Windows Experience Index
 - Windows Update Preview (non-destructive; no automatic upgrade or reboot)
 - About Lindows (winver) and Feedback Hub

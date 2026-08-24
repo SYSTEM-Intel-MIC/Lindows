@@ -54,12 +54,10 @@ Lindows 对每个集成组件提供明确的 ElevenDE 图标别名，而不是�
 | PeaZip | [PeaZip](https://github.com/peazip/PeaZip) | 仅获取 SHA-256 校验的 11.2.0 Qt6 AMD64 发布 DEB。 | `peazip` / ZIP 文件夹图标。 |
 | **Microsoft Edge** | [Microsoft Edge for Linux](https://packages.microsoft.com/repos/edge/) | 使用 `packages/binaries.lock.tsv` 中固定版本、URL 和 SHA-256 的官方 amd64 DEB；不在 Live 构建中查询漂移的 latest。 | `microsoft-edge` 官方包图标；桌面提供 Microsoft Edge 快捷方式。该专有二进制不重新许可为 GPL。 |
 | Activate Lindows | [MrGlockenspiel/activate-linux](https://github.com/MrGlockenspiel/activate-linux) | C 源码构建为激活水印视觉组件。 | `lindows-activation-watermark` / package 图标；不改变许可或系统激活状态。 |
-| Lindows Control | [BobbyChengCN0518/Lindows_Control](https://github.com/BobbyChengCN0518/Lindows_Control) | Rust 1.95、锁定 Cargo.lock 构建。 | `lindows-control` / 控制面板图标。 |
 | Troubleshooting | [BobbyChengCN0518/Lindows-Troubleshooting](https://github.com/BobbyChengCN0518/Lindows-Troubleshooting) | PySide6 导入适配为 Debian 可用的 PyQt5 绑定。 | `lindows-troubleshooting` / 信息图标。 |
 | UAC Preview | [WenAnrong/Linux_uac](https://github.com/WenAnrong/Linux_uac) | 仅构建 UI；打包期补丁强制 `--timeout 0`。 | `lindows-uac-preview` / 安全图标；**不安装 PAM 模块、不修改 sudo、不自动批准操作**。 |
 | Lindows Defender | [xusk1234/LinuxDefender](https://github.com/xusk1234/LinuxDefender) | Python/Tk 入口打包。 | `lindows-defender` / Defender 图标。 |
 | Sticky Keys | [xusk1234/Linux-Sticky-keys](https://github.com/xusk1234/Linux-Sticky-keys) | Python 入口打包，并由 Lindows 覆盖错误的上游桌面 Exec。 | `lindows-sticky-keys` / Sticky Notes 图标。 |
-| Task Scheduler | [1ctrl-cv/taskschd4Linux](https://github.com/1ctrl-cv/taskschd4Linux) | 保留上游 Qt6 图形路径，使用 Debian `python3-pyqt6`、`croniter` 和 polkit 依赖。 | `taskschd` / 任务图标。 |
 | Windows Widgets | [phillin-liu/WindowsWidget-for-Linux](https://github.com/phillin-liu/WindowsWidget-for-Linux) | Python/PyQt5 包装。 | `lindows-widgets` / Widgets 图标。 |
 | Windows Commands | [HelloAIXIAOJI/windowshit](https://github.com/HelloAIXIAOJI/windowshit) | Rust 1.95 构建；所有命令以 `lindows-*` 命名空间暴露，避免覆盖 Linux 命令。 | `lindows-windowshit` / Terminal 图标；电源命令仍受权限控制。 |
 | WinSAT | [WhatDamon/WinSAT](https://github.com/WhatDamon/WinSAT) | Python 模块打包。 | `winsat` / 芯片图标。 |

@@ -35,6 +35,58 @@ if "LINDOWS-SESSION-POLICY" in text:
 if old not in text:
     raise SystemExit("ElevenDE login gate marker was not found")
 text = text.replace(old, new, 1)
+
+old_shell = '''echo "elevende-session: starting shell"
+/usr/local/bin/elevende-shell >/tmp/elevende-shell.log 2>&1 &
+SHELL_PID=$!
+'''
+new_shell = '''echo "elevende-session: starting supervised shell"
+# Keep the shell independent from SAS/Openbox.  If its X11 process exits
+# unexpectedly, restart it instead of leaving the user on a grey root window
+# with only the SAS daemon still responsive.
+(
+    trap 'exit 0' INT TERM
+    while :; do
+        /usr/local/bin/elevende-shell >>/tmp/elevende-shell.log 2>&1 || true
+        sleep 1
+    done
+) &
+SHELL_PID=$!
+'''
+if old_shell not in text:
+    raise SystemExit("ElevenDE shell startup marker was not found")
+text = text.replace(old_shell, new_shell, 1)
+
+old_dbus = '''export DBUS_SESSION_BUS_ADDRESS
+export DBUS_SESSION_BUS_PID
+'''
+new_dbus = '''export DBUS_SESSION_BUS_ADDRESS
+export DBUS_SESSION_BUS_PID
+
+# loginctl power, suspend and reboot actions need a desktop polkit agent.  Do
+# not bypass authorization with sudo or a policy relaxation; run the standard
+# agent inside the user session so approved actions get a visible prompt.
+POLKIT_PID=""
+if command -v lxqt-policykit-agent >/dev/null 2>&1; then
+    lxqt-policykit-agent >/tmp/elevende-polkit.log 2>&1 &
+    POLKIT_PID=$!
+fi
+'''
+if old_dbus not in text:
+    raise SystemExit("ElevenDE D-Bus session marker was not found")
+text = text.replace(old_dbus, new_dbus, 1)
+
+old_cleanup = '''[ -n "${DBUS_PID:-}" ] && kill "$DBUS_PID" 2>/dev/null || true
+exit $rc
+'''
+new_cleanup = '''[ -n "${POLKIT_PID:-}" ] && kill "$POLKIT_PID" 2>/dev/null || true
+[ -n "${DBUS_PID:-}" ] && kill "$DBUS_PID" 2>/dev/null || true
+exit $rc
+'''
+if old_cleanup not in text:
+    raise SystemExit("ElevenDE session cleanup marker was not found")
+text = text.replace(old_cleanup, new_cleanup, 1)
+
 old_locale = '''export LANG=C.UTF-8
 export LC_ALL=C.UTF-8
 '''
