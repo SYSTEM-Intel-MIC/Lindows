@@ -79,12 +79,17 @@ Type=Application
 Name=Microsoft Edge
 Name[zh_CN]=Microsoft Edge
 Comment=Microsoft Edge web browser
-Exec=/usr/bin/microsoft-edge %U
+Exec=/usr/bin/microsoft-edge --password-store=basic %U
 Icon=microsoft-edge
 Terminal=false
 StartupNotify=true
 Categories=Network;WebBrowser;
 EOF
+# Override the package desktop entry as well as the desktop shortcut.  The
+# local applications directory is scanned before /usr/share/applications, so
+# Start, taskbar launch and the desktop all use the same password-store policy.
+install -Dm644 /etc/skel/Desktop/Microsoft\ Edge.desktop \
+    /usr/local/share/applications/microsoft-edge.desktop
 # The local entries above are the single Lindows source of truth.  Remove
 # package-provided alternatives whose different Exec values would otherwise
 # bypass Shell de-duplication and appear as duplicate All Apps icons.
