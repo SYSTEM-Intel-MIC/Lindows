@@ -160,26 +160,14 @@ meson setup "$BSOD/build" "$BSOD" --buildtype=release
 meson compile -C "$BSOD/build"
 STAGE="$WORK/pkg-lindows-bsod"
 install -Dm755 "$BSOD/build/bsod" "$STAGE/usr/local/sbin/lindows-bsod"
-# The upstream renderer directly seizes a VT/DRM master and therefore requires
-# root.  Lindows exposes a safe X11 demonstration instead: it never reboots,
-# never changes the active VT and Escape always restores the desktop.
-install -Dm755 /dev/stdin "$STAGE/usr/lib/lindows-bsod-preview.py" <<'PY'
-#!/usr/bin/env python3
-import tkinter as tk
-root = tk.Tk()
-root.configure(bg="#0078d7")
-root.attributes("-fullscreen", True)
-root.title("Lindows Blue Screen Demo")
-frame = tk.Frame(root, bg="#0078d7")
-frame.place(relx=0.5, rely=0.47, anchor="center")
-tk.Label(frame, text=":(", fg="white", bg="#0078d7", font=("Sans", 72)).pack(anchor="w")
-tk.Label(frame, text="Lindows 蓝屏演示\n这是一个安全预览，不会重启或修改系统。\n按 Esc 返回桌面。", fg="white", bg="#0078d7", justify="left", font=("Sans", 20)).pack(anchor="w", pady=(18, 0))
-root.bind("<Escape>", lambda _event: root.destroy())
-root.mainloop()
-PY
+# The upstream renderer intentionally owns a dedicated VT/DRM master.
+# Lindows invokes the real renderer through pkexec, but always forces its
+# documented restore mode so the demo cannot reboot the machine.
 install -Dm755 /dev/stdin "$STAGE/usr/local/bin/lindows-bsod-demo" <<'LAUNCH'
 #!/bin/sh
-exec python3 /usr/lib/lindows-bsod-preview.py "$@"
+set -eu
+reason="Lindows 蓝屏演示（安全恢复模式）"
+exec pkexec /usr/local/sbin/lindows-bsod --show "$reason" --restore
 LAUNCH
 install -Dm644 /dev/stdin "$STAGE/usr/share/applications/lindows-bsod.desktop" <<'DESKTOP'
 [Desktop Entry]
@@ -193,7 +181,7 @@ Terminal=false
 Categories=System;
 DESKTOP
 install -Dm644 "$BSOD/LICENSE" "$STAGE/usr/share/doc/lindows-bsod/copyright"
-make_deb "lindows-bsod" "1.0.3+lindows2" "python3, python3-tk" "$STAGE" "Safe reversible Lindows blue-screen demonstration"
+make_deb "lindows-bsod" "1.0.4+lindows3" "libc6, libdrm2, libfreetype6, libfontconfig1, libsystemd0, policykit-1" "$STAGE" "Safe reversible Lindows blue-screen TTY demonstration"
 
 log "building Device Manager package"
 DEVMGR="$WORK/devmgr"
@@ -249,6 +237,7 @@ make_deb "lindows-store" "2.3.0+lindows2" "python3, python3-gi, gir1.2-gtk-3.0, 
 log "downloading fixed release DEBs described by the binary lock"
 fetch_binary_locked copilot-for-linux
 fetch_binary_locked peazip
+fetch_binary_locked edge
 
 (
     cd "$PKGS"

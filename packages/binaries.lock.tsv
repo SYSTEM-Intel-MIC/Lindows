@@ -2,3 +2,4 @@
 # id	filename	url	sha256	license_status
 copilot-for-linux	copilot-for-linux_1.0.0_amd64.deb	https://github.com/com-in/Copilot-For-Linux/releases/download/v1.0.0/copilot-for-linux_1.0.0_amd64.deb	744120cc972fe66b0e1040a526943f8d8daa92de272d6cec4e3bcad9acfa0158	upstream-license
 peazip	peazip_11.2.0.LINUX.Qt6-1_amd64.deb	https://github.com/peazip/PeaZip/releases/download/11.2.0/peazip_11.2.0.LINUX.Qt6-1_amd64.deb	11af7ca6fd633566eb8de969b43ca257b8bce759421775c8c7bbb66105406e58	LGPL-3.0-or-later
+edge	microsoft-edge-stable_143.0.3650.80-1_amd64.deb	https://packages.microsoft.com/repos/edge/pool/main/m/microsoft-edge-stable/microsoft-edge-stable_143.0.3650.80-1_amd64.deb	528877731d82c3b01fe1f3622b7b0fdefa69a633f4bc7b8c1582bc9e07d08f00	Microsoft-proprietary-binary

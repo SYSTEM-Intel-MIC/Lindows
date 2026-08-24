@@ -74,7 +74,7 @@ fcitx5-chinese-addons
 fcitx5-pinyin
 
 # Requested everyday applications
-firefox-esr
+# Microsoft Edge is installed from packages/binaries.lock.tsv.
 vlc
 eog
 calamares
