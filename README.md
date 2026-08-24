@@ -52,17 +52,18 @@ Lindows 对每个集成组件提供明确的 ElevenDE 图标别名，而不是�
 | **Lindows Store** | [SYSTEM-Intel-MIC/linux-store](https://github.com/SYSTEM-Intel-MIC/linux-store) | 锁定源码打包为 `lindows-store`；沿用 APT 与 polkit 的软件安装模型。 | `lindows-store` / Microsoft Store 风格图标。 |
 | Copilot for Linux | [com-in/Copilot-For-Linux](https://github.com/com-in/Copilot-For-Linux) | 仅获取 SHA-256 校验的 v1.0.0 AMD64 发布 DEB；Live 环境使用受控 Electron 沙箱兼容包装器。 | `lindows-copilot` / package 图标；不包含 API 密钥。 |
 | PeaZip | [PeaZip](https://github.com/peazip/PeaZip) | 仅获取 SHA-256 校验的 11.2.0 Qt6 AMD64 发布 DEB。 | `peazip` / ZIP 文件夹图标。 |
+| **Microsoft Edge** | [Microsoft Edge for Linux](https://packages.microsoft.com/repos/edge/) | 使用 `packages/binaries.lock.tsv` 中固定版本、URL 和 SHA-256 的官方 amd64 DEB；不在 Live 构建中查询漂移的 latest。 | `microsoft-edge` 官方包图标；桌面提供 Microsoft Edge 快捷方式。该专有二进制不重新许可为 GPL。 |
 | Activate Lindows | [MrGlockenspiel/activate-linux](https://github.com/MrGlockenspiel/activate-linux) | C 源码构建为激活水印视觉组件。 | `lindows-activation-watermark` / package 图标；不改变许可或系统激活状态。 |
 | Lindows Control | [BobbyChengCN0518/Lindows_Control](https://github.com/BobbyChengCN0518/Lindows_Control) | Rust 1.95、锁定 Cargo.lock 构建。 | `lindows-control` / 控制面板图标。 |
 | Troubleshooting | [BobbyChengCN0518/Lindows-Troubleshooting](https://github.com/BobbyChengCN0518/Lindows-Troubleshooting) | PySide6 导入适配为 Debian 可用的 PyQt5 绑定。 | `lindows-troubleshooting` / 信息图标。 |
 | UAC Preview | [WenAnrong/Linux_uac](https://github.com/WenAnrong/Linux_uac) | 仅构建 UI；打包期补丁强制 `--timeout 0`。 | `lindows-uac-preview` / 安全图标；**不安装 PAM 模块、不修改 sudo、不自动批准操作**。 |
 | Lindows Defender | [xusk1234/LinuxDefender](https://github.com/xusk1234/LinuxDefender) | Python/Tk 入口打包。 | `lindows-defender` / Defender 图标。 |
 | Sticky Keys | [xusk1234/Linux-Sticky-keys](https://github.com/xusk1234/Linux-Sticky-keys) | Python 入口打包，并由 Lindows 覆盖错误的上游桌面 Exec。 | `lindows-sticky-keys` / Sticky Notes 图标。 |
-| Task Scheduler | [1ctrl-cv/taskschd4Linux](https://github.com/1ctrl-cv/taskschd4Linux) | PyQt5 兼容层、`croniter` 和 polkit 依赖。 | `taskschd` / 任务图标。 |
+| Task Scheduler | [1ctrl-cv/taskschd4Linux](https://github.com/1ctrl-cv/taskschd4Linux) | 保留上游 Qt6 图形路径，使用 Debian `python3-pyqt6`、`croniter` 和 polkit 依赖。 | `taskschd` / 任务图标。 |
 | Windows Widgets | [phillin-liu/WindowsWidget-for-Linux](https://github.com/phillin-liu/WindowsWidget-for-Linux) | Python/PyQt5 包装。 | `lindows-widgets` / Widgets 图标。 |
 | Windows Commands | [HelloAIXIAOJI/windowshit](https://github.com/HelloAIXIAOJI/windowshit) | Rust 1.95 构建；所有命令以 `lindows-*` 命名空间暴露，避免覆盖 Linux 命令。 | `lindows-windowshit` / Terminal 图标；电源命令仍受权限控制。 |
 | WinSAT | [WhatDamon/WinSAT](https://github.com/WhatDamon/WinSAT) | Python 模块打包。 | `winsat` / 芯片图标。 |
-| Windows Update Preview | [WenAnrong/windows_update_in_linux](https://github.com/WenAnrong/windows_update_in_linux) | CMake 构建；启动器强制 `WINDOWS_UPDATE_MODE=failure` 和 `--no-reboot`。 | `lindows-update-preview` / 刷新图标；不运行 `apt upgrade`、不重启。 |
+| Windows Update Preview | [WenAnrong/windows_update_in_linux](https://github.com/WenAnrong/windows_update_in_linux) | CMake 构建；Lindows 包装器恢复上游 TTY/DRM 预览并固定 `--no-reboot`。 | `lindows-update-preview` / 刷新图标；不运行 `apt upgrade`、不重启。 |
 | About Lindows | [DeepslateQAQ/linux-winver](https://github.com/DeepslateQAQ/linux-winver) | GTK4/C 构建。 | `winver` / 系统版本图标。 |
 | Feedback Hub | [com-in/FeedbackHub-For-Linux](https://github.com/com-in/FeedbackHub-For-Linux) | Python/GTK 包装。 | `feedbackhub` / Feedback 图标。 |
 | mmclinux | `windowsuninstaller/mmclinux` | 用户提供的公开地址在审计时无法确认，未进入来源锁、构建、ISO 或菜单。 | **未集成。** 提供可审计来源与许可后才可能评估。 |
@@ -101,3 +102,9 @@ Lindows 不自动执行系统清理、驱动卸载、驱动下载、系统任务
 ## 参考
 
 [1]: https://github.com/SYSTEM-Intel-MIC/ElevenDE "ElevenDE source and license boundary"
+
+## 第二轮体验修复补充
+
+在 `lindows-2.0-integration` 的后续集成中，Firefox ESR 已替换为固定版本的 Microsoft Edge for Linux amd64 DEB；其官方下载 URL、版本和 SHA-256 位于 `packages/binaries.lock.tsv`。Edge 是 Microsoft 专有二进制，不属于 Lindows GPL 源码。Lindows 还为 Edge、Lindows 终端和注册表编辑器提供桌面快捷方式，并继续使用锁定的 WindowsIcons 资源映射 Lindows 自有工具图标，不使用用户上传的低清截图作为图标。
+
+BlueScreen Demo 恢复调用上游真实 TTY/DRM 渲染器，但 Lindows 包装器固定使用 `--restore`，因此演示完成后回到桌面且不执行默认重启路径。分辨率补丁改为读取 X11 根窗口的实时几何属性，配合 ElevenDE 原生 RandR 事件和轮询，使任务栏、桌面图标和工作区跟随分辨率变化重新布局。
