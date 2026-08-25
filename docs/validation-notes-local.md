@@ -60,3 +60,13 @@ BSOD、Windows Update Preview 和 Start 电源改为经由固定功能的 `lindo
 菜单解析只读取 `Name[zh_CN]`/`Name[zh]`，不再把任意其他语言翻译误当中文；物理清理及解析过滤均加入 Bookworm 实际出现的 `lxqt-leave` 关机、重启、注销、锁屏、挂起入口。终端 Fontconfig 与 Xresources 改用经 `fc-match` 验证存在的 `Noto Sans Mono CJK SC`，而非比例 CJK 字体。SAS 底部电源菜单与 Start 共用受限 `lindows-power-action`；安装后 sudo 用户也获得该单一固定功能调度器的 `AUTH_SELF` polkit 认证路径。最终 ISO 校验器新增这些结构性断言。
 
 这些改动已经通过锁定源码夹具、语法、字体族、入口过滤与权限边界检查；仍需在健康虚拟机中执行用户操作级回归，尤其是安装后 BSOD/更新、SAS 认证、实际关机/重启、分辨率切换和 Widgets 边缘触发。因此本记录不将这些项目表述为已交互通过。
+
+## 2026-08-25：安装后灰屏与电源/会话二次复现修复
+
+最新实际复现表明，上一轮仍存在关机、重启与安装后 BSOD/更新演示无响应；SAS 的“注销”仅显示登录门而非结束会话；All Apps 仍残留 Picom、会话配置、安装系统及键盘布局查看器；终端入口错误指向命令兼容说明程序；分辨率保存后，下一次启动短暂显示桌面即变成灰色根窗口。
+
+本轮审计发现确定性灰屏根因：安装后 `/usr/local/bin/lindows-restore-display` 在 `xrandr` 后执行 `pkill -USR1 -x elevende-shell`，但锁定 ElevenDE Shell 仅忽略 `SIGHUP`、未注册 `SIGUSR1`；其默认信号动作是终止，因此 Openbox 保留而 Shell（桌面、任务栏和图标）消失，形成灰屏。该信号已经删除，最终 ISO 校验器也会拒绝它重新出现。
+
+注销调整为只有 SAS 显式选择时才创建 marker 并退出 Openbox；显示启动器只在该 marker 存在时复用现有 Xorg 拉起新会话与原生登录门，任何未标记退出仍交给失败恢复，不可作为分辨率刷新逻辑。固定权限调度器的电源分支改用 root 下的 `systemctl --no-wall`，并对仅有五个固定安全动作的调度器给予 Calamares 创建 sudo 用户的窄范围允许，以消除自定义显示服务中图形 polkit agent/active-seat 失配造成的安装后无响应。
+
+终端入口现直接启动黑底 XTerm，显式使用 `Noto Sans Mono CJK SC`；Picom、LXQt 会话配置、键盘布局查看器、Calamares/安装系统入口会在最终镜像层删除。用户可见的 Widgets、命令、体验指数和更新预览名称改为 Lindows（Microsoft Edge 名称依用户既有要求保留）。这些变更已完成源码夹具与脚本检查，但仍未在健康虚拟机中完成 Live 与安装后实际交互验收。

@@ -280,7 +280,7 @@ install_license "$SRC" "$STAGE" "lindows-widgets"
 make_deb "lindows-widgets" "1.0.0+lindows2" "python3, python3-pyqt5, python3-requests, python3-pil" "$STAGE" "Windows-style desktop widgets for Lindows"
 
 if [ "${LINDOWS_SKIP_RUST_COMPONENTS:-0}" != "1" ]; then
-log "building namespaced Windows command compatibility tools"
+log "building namespaced Lindows command compatibility tools"
 SRC="$WORK/windowshit"; source_locked windowshit "$SRC"
 cargo build --manifest-path "$SRC/Cargo.toml" --release --locked
 STAGE="$WORK/pkg-lindows-windowshit"
@@ -293,15 +293,34 @@ for bin in ipconfig ping tracert pathping whoami hostname ver where tree findstr
 done
 install -Dm755 /dev/stdin "$STAGE/usr/bin/lindows-windowshit" <<'SH'
 #!/bin/sh
-printf '%s\n' 'Lindows Windows-compatible commands are namespaced as lindows-ipconfig, lindows-tasklist, lindows-systeminfo and related commands.'
+printf '%s\n' 'Lindows 命令兼容工具使用 lindows-ipconfig、lindows-tasklist、lindows-systeminfo 等命名空间。'
 SH
-install_desktop "$STAGE" "lindows-windowshit.desktop" "Windows Commands" "lindows-windowshit" "utilities-terminal" "System;Utility;"
+install_desktop "$STAGE" "lindows-windowshit.desktop" "Lindows Commands" "Lindows 命令" "utilities-terminal" "System;Utility;"
 install_license "$SRC" "$STAGE" "lindows-windowshit"
-make_deb "lindows-windowshit" "0.1.1+lindows2" "libc6" "$STAGE" "Namespaced Windows command compatibility tools"
+make_deb "lindows-windowshit" "0.1.1+lindows2" "libc6" "$STAGE" "Namespaced Lindows command compatibility tools"
 fi
 
 log "packaging WinSAT"
 SRC="$WORK/winsat"; source_locked winsat "$SRC"
+# Brand user-visible assessment strings as Lindows without changing the
+# upstream Windows-platform detection that protects its *nix execution path.
+python3 - "$SRC/src/pywinsat/ui/locales.py" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+s = p.read_text(encoding="utf-8")
+replacements = {
+    "Windows 体验指数": "Lindows 体验指数",
+    "Windows Experience Index": "Lindows Experience Index",
+    "正在准备 Windows，请不要关闭计算机。": "正在准备 Lindows，请不要关闭计算机。",
+    "Preparing Windows, please do not turn off your computer.": "Preparing Lindows, please do not turn off your computer.",
+    "Windows 体验指数按 1.0 至 9.9 的等级评估关键系统组件": "Lindows 体验指数按 1.0 至 9.9 的等级评估关键系统组件",
+    "The Windows Experience Index assesses key system components on a scale of 1.0 to 9.9": "The Lindows Experience Index assesses key system components on a scale of 1.0 to 9.9",
+}
+for old, new in replacements.items():
+    s = s.replace(old, new)
+p.write_text(s, encoding="utf-8")
+PY
 STAGE="$WORK/pkg-lindows-winsat"
 install -d "$STAGE/usr/lib/lindows-winsat"
 cp -a "$SRC/src/pywinsat" "$STAGE/usr/lib/lindows-winsat/"
@@ -315,11 +334,11 @@ if [ "$#" -eq 0 ]; then
 fi
 exec python3 -m pywinsat "$@"
 SH
-install_desktop "$STAGE" "lindows-winsat.desktop" "Windows Experience Index" "winsat" "applications-system" "System;Utility;"
+install_desktop "$STAGE" "lindows-winsat.desktop" "Lindows Experience Index" "Lindows 体验指数" "applications-system" "System;Utility;"
 install_license "$SRC" "$STAGE" "lindows-winsat"
-make_deb "lindows-winsat" "1.0.1+lindows3" "python3, python3-tk" "$STAGE" "Windows Experience Index style benchmark tool"
+make_deb "lindows-winsat" "1.0.1+lindows3" "python3, python3-tk" "$STAGE" "Lindows experience-index style benchmark tool"
 
-log "building safe Windows Update preview"
+log "building safe Lindows Update preview"
 SRC="$WORK/windows-update-preview"; source_locked windows-update-preview "$SRC"
 cmake -S "$SRC" -B "$SRC/build" -DCMAKE_BUILD_TYPE=Release
 cmake --build "$SRC/build" --parallel
@@ -333,9 +352,9 @@ install -Dm755 /dev/stdin "$STAGE/usr/bin/lindows-update-preview" <<'SH'
 [ "$#" -eq 0 ] || exit 64
 exec pkexec /usr/local/libexec/lindows-privileged-action update-preview
 SH
-install_desktop "$STAGE" "lindows-update-preview.desktop" "Windows Update Preview" "Windows 更新预览" "software-update-available" "System;Settings;"
+install_desktop "$STAGE" "lindows-update-preview.desktop" "Lindows Update Preview" "Lindows 更新预览" "software-update-available" "System;Settings;"
 install_license "$SRC" "$STAGE" "lindows-update-preview"
-make_deb "lindows-update-preview" "1.0.2+lindows5" "libc6, libdrm2, libfreetype6, libfontconfig1, libsystemd0, policykit-1" "$STAGE" "Safe direct-TTY Lindows Windows Update preview"
+make_deb "lindows-update-preview" "1.0.2+lindows5" "libc6, libdrm2, libfreetype6, libfontconfig1, libsystemd0, policykit-1" "$STAGE" "Safe direct-TTY Lindows Update preview"
 
 log "building About Lindows (winver)"
 SRC="$WORK/linux-winver"; source_locked linux-winver "$SRC"
@@ -348,7 +367,7 @@ exec /usr/lib/lindows-winver/winver "$@"
 SH
 install_desktop "$STAGE" "lindows-winver.desktop" "About Lindows" "winver" "help-about" "System;Settings;"
 install_license "$SRC" "$STAGE" "lindows-winver"
-make_deb "lindows-winver" "1.0.0+lindows2" "libc6, libgtk-4-1" "$STAGE" "Windows winver-style Lindows version information"
+make_deb "lindows-winver" "1.0.0+lindows2" "libc6, libgtk-4-1" "$STAGE" "Lindows version information"
 
 log "packaging Feedback Hub"
 SRC="$WORK/feedbackhub"; source_locked feedbackhub "$SRC"

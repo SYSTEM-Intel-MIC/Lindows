@@ -116,23 +116,27 @@ cat_image_file 'usr/local/bin/elevende-session' "$SESSION_SCRIPT"
 grep -q 'LINDOWS-SESSION-POLICY' "$SESSION_SCRIPT"
 grep -q 'Live session bypasses the login gate' "$SESSION_SCRIPT"
 grep -q 'single long-lived process' "$SESSION_SCRIPT"
-! grep -q 'lindows-elevende-logout' "$SESSION_SCRIPT"
 DISPLAY_LAUNCHER="$WORK/lindows-elevende-display"
 cat_image_file 'usr/local/sbin/lindows-elevende-display' "$DISPLAY_LAUNCHER"
-! grep -q 'while :' "$DISPLAY_LAUNCHER"
-! grep -q 'lindows-elevende-logout' "$DISPLAY_LAUNCHER"
+grep -q 'if \[ -f "\$LOGOUT_MARKER" \]' "$DISPLAY_LAUNCHER"
+grep -q 'explicit logout; restarting native ElevenDE session' "$DISPLAY_LAUNCHER"
 POWER_BRIDGE="$WORK/lindows-power-action"
 cat_image_file 'usr/local/bin/lindows-power-action' "$POWER_BRIDGE"
 grep -q '^exec pkexec /usr/local/libexec/lindows-privileged-action "\$action"$' "$POWER_BRIDGE"
 LOGOUT_HELPER="$WORK/lindows-logout"
 cat_image_file 'usr/local/bin/lindows-logout' "$LOGOUT_HELPER"
-grep -q 'elevende-lock --login' "$LOGOUT_HELPER"
-! grep -q 'openbox --exit' "$LOGOUT_HELPER"
+grep -q 'lindows-elevende-logout' "$LOGOUT_HELPER"
+grep -q 'exec openbox --exit' "$LOGOUT_HELPER"
 PRIVILEGED_ACTION="$WORK/lindows-privileged-action"
 cat_image_file 'usr/local/libexec/lindows-privileged-action' "$PRIVILEGED_ACTION"
 grep -q -- '--restore' "$PRIVILEGED_ACTION"
 grep -q -- '--no-reboot' "$PRIVILEGED_ACTION"
 ! grep -q '\$@' "$PRIVILEGED_ACTION"
+grep -q 'systemctl --no-wall poweroff' "$PRIVILEGED_ACTION"
+grep -q 'systemctl --no-wall reboot' "$PRIVILEGED_ACTION"
+TARGET_POSTINSTALL="$WORK/lindows-target-postinstall"
+cat_image_file 'usr/local/libexec/lindows-target-postinstall.sh' "$TARGET_POSTINSTALL"
+! grep -qE 'pkill[[:space:]]+-USR1[[:space:]]+-x[[:space:]]+elevende-shell' "$TARGET_POSTINSTALL"
 POLKIT_POLICY="$WORK/lindows-privileged-action.policy"
 cat_image_file 'usr/share/polkit-1/actions/im.system-intel-mic.lindows.privileged-action.policy' "$POLKIT_POLICY"
 grep -q 'id="im.system-intel-mic.lindows.privileged-action"' "$POLKIT_POLICY"
@@ -141,7 +145,7 @@ LIVE_POLKIT_RULE="$WORK/49-lindows-calamares.rules"
 cat_image_file 'etc/polkit-1/rules.d/49-lindows-calamares.rules' "$LIVE_POLKIT_RULE"
 grep -q 'im.system-intel-mic.lindows.privileged-action' "$LIVE_POLKIT_RULE"
 grep -q 'subject.isInGroup("sudo")' "$LIVE_POLKIT_RULE"
-grep -q 'polkit.Result.AUTH_SELF' "$LIVE_POLKIT_RULE"
+grep -q 'polkit.Result.YES' "$LIVE_POLKIT_RULE"
 ! grep -q 'org.freedesktop.policykit.exec' "$LIVE_POLKIT_RULE"
 
 # Verify the installed, hook-mutated Calamares settings rather than source
@@ -224,6 +228,19 @@ grep -q '^Icon=lindows-store$' "$COMPONENT_DESKTOP"
 if command -v desktop-file-validate >/dev/null 2>&1; then
     desktop-file-validate "$COMPONENT_DESKTOP"
 fi
+
+# User-requested upstream helpers must not remain in All Apps.  Validate the
+# actual expanded filesystem rather than trusting the hook source.
+for removed_entry in picom.desktop lxqt-config-session.desktop kbd-layout-viewer5.desktop calamares.desktop install-system.desktop; do
+    if [ -e "$FULL_ROOT/usr/share/applications/$removed_entry" ] || [ -e "$FULL_ROOT/usr/local/share/applications/$removed_entry" ]; then
+        echo "final ISO still exposes a removed desktop entry: $removed_entry" >&2
+        exit 1
+    fi
+done
+TERMINAL_ENTRY="$WORK/xterm.desktop"
+cat_image_file 'usr/local/share/applications/xterm.desktop' "$TERMINAL_ENTRY"
+grep -q 'Noto Sans Mono CJK SC' "$TERMINAL_ENTRY"
+grep -q 'XTerm\*background:#000000' "$TERMINAL_ENTRY"
 
 # All Apps must not surface session/power helpers as regular applications.  This
 # validates the fully installed filesystem rather than trusting the source hook.

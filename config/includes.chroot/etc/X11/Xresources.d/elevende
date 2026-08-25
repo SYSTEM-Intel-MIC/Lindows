@@ -7,5 +7,11 @@ Xft.hintstyle: hintslight
 Xft.rgba: rgb
 XTerm*faceName: Noto Sans Mono CJK SC
 XTerm*faceSize: 11
+XTerm*background: #000000
+XTerm*foreground: #f2f2f2
+XTerm*cursorColor: #ffffff
 xterm*faceName: Noto Sans Mono CJK SC
 xterm*faceSize: 11
+xterm*background: #000000
+xterm*foreground: #f2f2f2
+xterm*cursorColor: #ffffff

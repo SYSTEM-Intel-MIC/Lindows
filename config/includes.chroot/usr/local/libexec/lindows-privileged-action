@@ -8,13 +8,13 @@ set -eu
 [ "$#" -eq 1 ] || exit 64
 case "$1" in
     suspend)
-        exec /usr/bin/loginctl suspend
+        exec /usr/bin/systemctl --no-wall suspend
         ;;
     poweroff)
-        exec /usr/bin/loginctl poweroff
+        exec /usr/bin/systemctl --no-wall poweroff
         ;;
     reboot)
-        exec /usr/bin/loginctl reboot
+        exec /usr/bin/systemctl --no-wall reboot
         ;;
     bsod)
         exec /usr/local/sbin/lindows-bsod --show "Lindows 蓝屏演示（安全恢复模式）" --restore

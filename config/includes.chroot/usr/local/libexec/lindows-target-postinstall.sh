@@ -100,9 +100,10 @@ mode=$(sed -n '1p' "$HOME/.config/lindows/display.conf")
 [ -n "$mode" ] || exit 0
 output=$(xrandr 2>/dev/null | awk '/ connected/{print $1; exit}')
 [ -n "$output" ] || exit 0
+# The Shell handles root ConfigureNotify and polls root geometry itself.  Do
+# not signal it after RandR: elevende-shell intentionally has no SIGUSR1
+# handler, so the default signal action kills the desktop and leaves gray root.
 xrandr --output "$output" --mode "$mode" >/dev/null 2>&1 || true
-sleep 2
-pkill -USR1 -x elevende-shell >/dev/null 2>&1 || true
 EOF
 install -Dm644 /dev/stdin /etc/xdg/autostart/lindows-restore-display.desktop <<'EOF'
 [Desktop Entry]

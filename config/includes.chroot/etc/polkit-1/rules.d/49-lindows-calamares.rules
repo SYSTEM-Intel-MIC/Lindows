@@ -6,12 +6,14 @@ polkit.addRule(function(action, subject) {
         return polkit.Result.YES;
     }
 
-    // The native ElevenDE display service does not create a display-manager
-    // logind session.  An installed account created by Calamares is placed in
-    // sudo and may authenticate as itself for this one fixed-function action;
-    // every other user still follows the policy defaults (auth_admin).
+    // ElevenDE's native display service does not create a conventional active
+    // logind seat, so GUI-agent-based AUTH_SELF can fail silently after install.
+    // Permit only the Calamares-created sudo user to run this one fixed-function
+    // dispatcher.  The dispatcher has no arbitrary-command branch: it accepts
+    // exactly suspend, poweroff, reboot, restore-only BSOD, or no-reboot update.
+    // All other actions and users retain the policy defaults (auth_admin).
     if (subject.isInGroup("sudo") &&
         action.id == "im.system-intel-mic.lindows.privileged-action") {
-        return polkit.Result.AUTH_SELF;
+        return polkit.Result.YES;
     }
 });
