@@ -70,3 +70,13 @@ BSOD、Windows Update Preview 和 Start 电源改为经由固定功能的 `lindo
 注销调整为只有 SAS 显式选择时才创建 marker 并退出 Openbox；显示启动器只在该 marker 存在时复用现有 Xorg 拉起新会话与原生登录门，任何未标记退出仍交给失败恢复，不可作为分辨率刷新逻辑。固定权限调度器的电源分支改用 root 下的 `systemctl --no-wall`，并对仅有五个固定安全动作的调度器给予 Calamares 创建 sudo 用户的窄范围允许，以消除自定义显示服务中图形 polkit agent/active-seat 失配造成的安装后无响应。
 
 终端入口现直接启动黑底 XTerm，显式使用 `Noto Sans Mono CJK SC`；Picom、LXQt 会话配置、键盘布局查看器、Calamares/安装系统入口会在最终镜像层删除。用户可见的 Widgets、命令、体验指数和更新预览名称改为 Lindows（Microsoft Edge 名称依用户既有要求保留）。这些变更已完成源码夹具与脚本检查，但仍未在健康虚拟机中完成 Live 与安装后实际交互验收。
+
+## 2026-08-25：任务栏 Widgets 残影、安装器残留与终端字符度量尾项修复
+
+用户澄清 Widgets 的空白常驻图标位于**开始按钮旁的应用任务区**，不是通知区域。审计锁定 ElevenDE Shell 的 `refresh_tasks()` 后确认，它遍历 `_NET_CLIENT_LIST` 时只排除了 desktop 类型窗口，完全没有读取 EWMH `_NET_WM_STATE_SKIP_TASKBAR`。Qt 的 Widgets 面板与长期存在的边缘触发窗口以 Tool/utility 身份发布该状态，因此会被错误渲染为无标题的应用按钮；右键“关闭”该按钮实际终止 Widgets 后，也连带失去边缘触发。Lindows 新增构建时补丁，在创建任务项前读取 `_NET_WM_STATE` 并跳过 `_NET_WM_STATE_SKIP_TASKBAR` 窗口；同时保持 Widgets 进程与边缘热区存在，而不是通过关闭它消除图标。补丁已按全部 ElevenDE Shell 补丁的实际顺序应用到锁定源码，并使用项目 `Makefile` 成功编译 `elevende-shell`。
+
+安装后“安装系统”残留的清理脚本还暴露两项实际的 `/bin/sh` 可移植性错误：dash 不支持花括号路径展开，且不支持 `read -d`。前者使 `/usr/share` 和 `/usr/local` 下的明确 Calamares/Install System 文件未被删除；后者使 `/home/*/.local/share/applications` 与 `/root/.local/share/applications` 的清理失效。修复后脚本使用显式路径，并以 POSIX 循环遍历标准用户 XDG 应用目录，文件名规则同时覆盖 `install-lindows` 与 `lindows-installer` 两种顺序；隔离夹具已验证系统级、用户级、中文 Name/Comment 命名的安装器条目都会删除，普通应用条目仍保留。
+
+终端截图显示的是整行字符单元被拉宽，而非当前可见的方框字符。原因是将 `Noto Sans Mono CJK SC` 作为 XTerm 主字体，令 ASCII 也继承 CJK 双宽字形度量。修复将 XTerm 主字体改回 `DejaVu Sans Mono`，将 `Noto Sans CJK SC` 与文泉驿作为 Fontconfig 回退，并显式令 `XTerm*cjkWidth: false`，使 East Asian Ambiguous 字符不放大普通字符格。使用待构建 `local.conf` 覆盖 Bookworm 展开根目录的隔离 Fontconfig 查询确认：`DejaVu Sans Mono:lang=zh-cn` 的主字体是 DejaVu Sans Mono，而中文 `U+4E2D/U+6587` 回退到 Noto Sans CJK SC。终端入口继续固定黑色背景并传入同一 CJK 宽度策略。
+
+以上是源码、脚本、隔离文件系统与 C 编译层面的证据，**不是**健康虚拟机里的鼠标交互验收。当前宿主的存储/EXT4 故障仍令本地 ISO 与 QEMU 长程结果不可信；必须在 GitHub Actions 的干净构建完成后，再由健康 VM 实测 Widgets 关闭后边缘触发、安装后 All Apps、以及中英文终端实际排版，方可确认这三个尾项的运行时通过。

@@ -33,24 +33,56 @@ if command -v systemctl >/dev/null 2>&1; then
     systemctl enable lindows-elevende-display.service >/dev/null 2>&1 || true
 fi
 
-# Installed systems must not keep the Live-only installer entry.
-find /home /root /etc/skel -type f \( -iname '*install*lindows*.desktop' -o -iname 'install-debian.desktop' -o -iname 'debian-installer.desktop' -o -iname 'debian-installer-launcher.desktop' \) -delete 2>/dev/null || true
-# Keep one Widgets process: Lindows supplies the system XDG autostart entry.
-# Remove an upstream per-user copy which older media created after a settings
-# save and which then duplicated edge strips on every subsequent login.
-find /home /root /etc/skel -type f -path '*/.config/autostart/widget-panel.desktop' -delete 2>/dev/null || true
+# Installed systems must not keep any Live-only installer entry.  The prior
+# cleanup scanned only /usr/share, while the final integration layer writes
+# overrides to /usr/local and some session initializers create per-user XDG
+# entries; scan all of those concrete menu roots by filename and localized name.
 rm -f /usr/share/applications/lindows-installer.desktop \
       /usr/share/applications/debian-installer.desktop \
       /usr/share/applications/debian-installer-launcher.desktop \
       /usr/share/applications/install-system.desktop \
+      /usr/share/applications/calamares.desktop \
+      /usr/local/share/applications/lindows-installer.desktop \
+      /usr/local/share/applications/debian-installer.desktop \
+      /usr/local/share/applications/debian-installer-launcher.desktop \
+      /usr/local/share/applications/install-system.desktop \
+      /usr/local/share/applications/calamares.desktop \
       /etc/xdg/autostart/calamares-desktop-icon.desktop \
       /etc/xdg/autostart/lindows-desktop-trust.desktop
-for entry in /usr/share/applications/*.desktop; do
-    [ -f "$entry" ] || continue
-    if grep -qiE '^Name(\[[^]]+\])?=.*(Install Lindows|Install System|安装 Lindows|安装系统)' "$entry" 2>/dev/null; then
+remove_installer_entry() {
+    entry="$1"
+    [ -f "$entry" ] || return 0
+    case "$(basename "$entry")" in
+        *install*lindows*.desktop|*lindows*install*.desktop|install-system.desktop|calamares.desktop|debian-installer*.desktop)
+            rm -f "$entry"
+            return 0
+            ;;
+    esac
+    if grep -qiE '^(Name|Name\[[^]]+\]|Comment)=.*(Install Lindows|Install System|安装 Lindows|安装系统)' "$entry" 2>/dev/null; then
         rm -f "$entry"
     fi
+}
+for app_dir in /usr/share/applications /usr/local/share/applications /etc/skel/.local/share/applications; do
+    [ -d "$app_dir" ] || continue
+    for entry in "$app_dir"/*.desktop; do
+        remove_installer_entry "$entry"
+    done
 done
+# dash (the /bin/sh used by Calamares) has no `read -d`, so do not use a
+# NUL-delimited find pipeline here.  Each local account has the standard XDG
+# applications directory directly below its home directory.
+for home_dir in /home/* /root; do
+    app_dir="$home_dir/.local/share/applications"
+    [ -d "$app_dir" ] || continue
+    for entry in "$app_dir"/*.desktop; do
+        remove_installer_entry "$entry"
+    done
+done
+
+# Keep one Widgets process: Lindows supplies the system XDG autostart entry.
+# Remove an upstream per-user copy which older media created after a settings
+# save and which then duplicated edge strips on every subsequent login.
+find /home /root /etc/skel -type f -path '*/.config/autostart/widget-panel.desktop' -delete 2>/dev/null || true
 
 # Keep the Lindows GRUB theme self-contained in the installed target. Copy
 # both the theme and its relative desktop-image asset before running grub-mkconfig.

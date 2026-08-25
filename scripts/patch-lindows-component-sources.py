@@ -104,6 +104,7 @@ def patch_widgets(root: Path) -> None:
             Qt.FramelessWindowHint
             | Qt.WindowStaysOnTopHint
             | Qt.Tool
+            | Qt.BypassWindowManagerHint
             | Qt.WindowDoesNotAcceptFocus
         )
         self.setAttribute(Qt.WA_TranslucentBackground, True)

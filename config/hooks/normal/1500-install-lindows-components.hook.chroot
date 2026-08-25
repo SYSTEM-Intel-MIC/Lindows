@@ -72,15 +72,16 @@ install -d /etc/skel/Desktop
 install -Dm644 /usr/local/share/applications/linux-regedit.desktop /etc/skel/Desktop/注册表编辑器.desktop
 # The Windows-command compatibility package is not a terminal emulator.  Make
 # the requested Terminal entry launch XTerm directly, with an explicit black
-# palette and a verified CJK monospace family instead of inheriting upstream
-# dark-grey resources or mapping the shortcut to a one-line helper.
+# palette and a compact DejaVu primary face with Fontconfig CJK fallback,
+# instead of inheriting upstream dark-grey resources or mapping the shortcut to
+# a one-line helper.
 cat > /usr/local/share/applications/xterm.desktop <<'EOF'
 [Desktop Entry]
 Type=Application
 Name=Terminal
 Name[zh_CN]=终端
 Comment=Lindows terminal
-Exec=xterm -fa "Noto Sans Mono CJK SC" -fs 11 -xrm "XTerm*background:#000000" -xrm "XTerm*foreground:#f2f2f2" -xrm "XTerm*cursorColor:#ffffff"
+Exec=xterm -fa "DejaVu Sans Mono" -fs 11 -xrm "XTerm*cjkWidth:false" -xrm "XTerm*background:#000000" -xrm "XTerm*foreground:#f2f2f2" -xrm "XTerm*cursorColor:#ffffff"
 Icon=utilities-terminal
 Terminal=false
 Categories=System;TerminalEmulator;
