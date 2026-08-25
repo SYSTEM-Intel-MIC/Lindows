@@ -1,60 +1,53 @@
-# Lindows 发行版架构
+# Lindows 2.0 发行版架构
 
-## 目标
+## 目标与范围
 
-Lindows 是面向 AMD64 的 Debian Bookworm 轻量级 X11 Live 发行版。它以 ElevenDE 作为默认桌面会话，提供熟悉的 Windows 风格桌面、系统工具和图形化安装入口，同时避免引入完整 GNOME、KDE 或其他重量级桌面元包。镜像标识、启动菜单、`/etc/os-release`、桌面会话和安装器界面均使用 **Lindows**；作者标识为 **SYSTEM-Intel-MIC**。
+Lindows 2.0 是面向 AMD64 的 Debian Bookworm 轻量级 X11 Live 发行版。它以 ElevenDE 3.5.1 为默认桌面会话，提供 Windows 风格桌面、系统工具、中文输入和图形化安装入口，同时避免引入 GNOME、KDE 或完整桌面元包。镜像标识、`/etc/os-release`、启动菜单、Calamares 品牌、桌面与已安装系统的 GRUB 主题统一为 **Lindows 2.0**。
 
-## 运行时组成
+> Lindows 使用 **Calamares** 作为唯一图形安装器。仓库和 ISO 不再构建或暴露 Debian Installer Live；桌面与开始菜单的“安装 Lindows”入口均启动 `lindows-installer`。
+
+## 运行时分层
 
 | 层次 | 方案 | 目的 |
 |---|---|---|
-| 基础 | Debian Bookworm、Linux live-boot、固件与 Xorg | 提供可启动的 LiveCD 与广泛硬件兼容性。 |
-| 桌面 | Openbox、picom、ElevenDE、LightDM GTK Greeter | 保持 X11 窗口管理器和登录路径轻量，同时提供 ElevenDE 的 Shell、开始菜单、任务栏、SAS、资源管理器与内置应用。 |
-| 安装器 | Calamares + `lindows-installer` 启动器 | Live 会话可从桌面或开始菜单启动图形化安装；ISO 启动菜单同时保留 Debian Installer Live 入口作为恢复路径。 |
-| 中文输入 | Fcitx5、GTK/Qt 前端、Chinese Addons、Noto CJK | 默认启动 Fcitx5，提供中/英切换和拼音输入，并确保 GTK3/Qt6 应用能获取输入法环境变量。 |
-| 常用应用 | Firefox ESR、VLC、Eye of GNOME、PeaZip Qt6 | 提供浏览、视频、图片和压缩解压能力。PeaZip 使用固定的官方发布 DEB 及 SHA-256 校验。 |
-| 系统工具 | LinuxPCManager、linux-regedit、lindows-bsod、devmgr | 集成用户指定的 Windows 风格电脑管家、注册表编辑器、蓝屏演示工具和设备管理器。危险操作仅在用户显式启动后使用 pkexec/root 权限。 |
+| 基础 | Debian Bookworm、live-boot、systemd、Xorg 与固件 | 提供可启动的 Live ISO 与硬件兼容性。 |
+| 桌面与会话 | ElevenDE 3.5.1、Openbox、picom、Xorg、`lindows-elevende-display.service` | LiveCD 直接启动临时用户的 ElevenDE 桌面；已安装系统由 ElevenDE 原生 Win11 风格登录界面验证 Calamares 创建的用户。系统不安装 LightDM。 |
+| 安装器 | Calamares、`lindows-installer` 与 `lindows-target-postinstall` | 以 Lindows 品牌安装系统，并清理目标系统中的 Live 安装器入口。 |
+| 输入 | Fcitx5、中文扩展、拼音、Noto CJK | 通过 GTK、Qt 与 XIM 环境变量统一提供中文输入。 |
+| 工具 | 固定提交的系统工具和独立 DEB | 组件不在 ISO 构建阶段运行上游安装脚本；每项都有许可证副本与桌面入口。 |
 
-## 第三方组件固定版本
+## 组件构建边界
 
-构建流程使用提交标识固定源代码，而不是构建时追随默认分支。工作流会从 HTTPS 获取代码、校验提交标识后在 Debian Bookworm 环境构建；不会执行上游提供的安装脚本。
+构建流程以 package layer 将运行时软件与发行集成严格分离。`packages/sources.lock.tsv` 固定 Git 来源和提交，`packages/binaries.lock.tsv` 固定预构建 DEB 与 SHA-256，构建缓存仅用于复用锁定来源。核心 ElevenDE、C、Qt 与 Go 组件在 `golang:1.24-bookworm` 中构建；需现代 Cargo.lock 的 Rust 工具在 `rust:1.95-bookworm` 中构建。两阶段产生的 `.deb` 必须通过 SHA-256、包元数据、许可证与桌面入口验证，并写入包含来源锁和图标覆盖哈希的 JSON manifest，之后才会进入 Live chroot。
 
-| 组件 | 源码 | 固定提交 | 集成方式 | 许可状态 |
-|---|---|---|---|---|
-| ElevenDE | [SYSTEM-Intel-MIC/ElevenDE](https://github.com/SYSTEM-Intel-MIC/ElevenDE) | `80d833958ad84f27b2890160a31d1443fe3c5ba6`；许可证变更提交 `a3b9c9ed17065cc2452678fd0cfe03deda33ab11` | 在 Bookworm 构建容器中从云端固定提交执行 `build-deb.sh` | ElevenDE 自有代码 GPL-3.0-or-later；原文副本见 [`LICENSES/GPL-3.0-ElevenDE.txt`](../LICENSES/GPL-3.0-ElevenDE.txt)；SAS/Explorer/runbox-linux 按各自上游声明。 |
-| LinuxPCManager | SYSTEM-Intel-MIC/LinuxPCManager | `4a744338aff580d4c7260bb00cbebfe8521bcf80` | 仅复制已审查的 Python/Tk 源码与桌面入口，制作本地 DEB。 | 当前云端页面未显示 LICENSE 文件；不将其重新标为 GPL，随镜像提供来源与原始说明。 |
-| linux-regedit | heyManNice/regedit | `0e3de3dcfbf1aca0fbc8dda2be307a1224c0f04f` | Meson/Ninja 构建，制作本地 DEB。 | 当前云端页面未显示 LICENSE，许可状态未明确；不将其重新标为 GPL。 |
-| lindows-bsod | heyManNice/bsod | `45757f64e6fa2983e92382a2ba8e47b1685d92f9` | Meson/Ninja 构建，安装为按需运行的 root 工具。 | MIT。 |
-| devmgr | daimile2/Device-Manager-But-Linux | `e7e8238cc72a08ce0302e4ffbd529838f49fbed4` | Go 1.24 Bookworm 容器构建 GUI 与 CLI，制作本地 DEB。 | MIT。 |
-| PeaZip | peazip/PeaZip 11.2.0 | 固定官方发布 | 下载 `peazip_11.2.0.LINUX.Qt6-1_amd64.deb`，核对 SHA-256 后安装。 | LGPLv3，随上游 DEB 提供。 |
-| SAS-for-Linux | [macOS-Terminal/SAS-for-Linux](https://github.com/macOS-Terminal/SAS-for-Linux) | `6f06ef4c2817729d6c1359a800458f683b4878f4` | 随云端 ElevenDE 源码构建。 | MIT；Copyright (c) 2026 macOS-Terminal；保留上游 MIT 条款。 |
-| Explorer-for-Linux | [macOS-Terminal/Explorer-for-Linux](https://github.com/macOS-Terminal/Explorer-for-Linux) | 上游许可证提交 `18676e1ce74b4dfa0c4eb897bc6c7cfe681f9db6`；ElevenDE 集成提交 `80d833958ad84f27b2890160a31d1443fe3c5ba6` | 随云端 ElevenDE 源码构建；ElevenDE 对 Explorer 核心源文件、构建元数据和集成方式进行了重大修改与基本重构。 | 上游原始部分 MIT；ElevenDE 修改/重构部分按 GPL-3.0-or-later 声明，不能把整个重构副本简单标成单一许可证。 |
-| runbox-linux | [SYSTEM-Intel-MIC/runbox-linux](https://github.com/SYSTEM-Intel-MIC/runbox-linux) | `a8a4786` | 随云端 ElevenDE 源码构建。 | README 明确 MIT；保留独立 MIT 条款。 |
-
-## 构建边界与安全原则
-
-GitHub Actions 分为两个阶段。第一阶段在 Debian Bookworm 容器中从固定源码生成 ElevenDE 和第三方组件的本地 `.deb` 文件。第二阶段调用 `live-build`，将这些已构建软件包、启动配置、桌面文件、输入法设置和品牌文件放入 Live chroot。构建完成后上传 ISO、构建日志、软件包清单和组件校验记录。
-
-蓝屏组件不会注册为守护进程，也不会监听日志后自动运行。它仅以 `lindows-bsod` 命令和桌面入口存在，默认使用恢复桌面的模式；其 DRM/VT 操作需要用户主动授权。电脑管家、设备管理器和注册表编辑器同样不自动执行清理、设备驱动变更或系统配置写入。
-
-## 轻量化取舍
-
-Lindows 不安装 GNOME、KDE、task-desktop 或完整办公套件。Calamares 是为 Live 安装程序保留的最大单项依赖；其余桌面功能由 ElevenDE、Openbox 和单用途应用提供。Firefox ESR、VLC、PeaZip 与 Noto CJK 是用户明确要求的应用与语言支持，因此属于镜像的功能性基础，而非可选桌面元包。
-
-## 外部来源记录
-
-| 资源 | 已核验信息 | 来源 |
+| 组件类别 | 示例 | 固定与安全边界 |
 |---|---|---|
-| ElevenDE | 云端提交 `a3b9c9ed17065cc2452678fd0cfe03deda33ab11` 将 ElevenDE 自有代码切换为 GPL-3.0-or-later，后续固定提交为 `80d833958ad84f27b2890160a31d1443fe3c5ba6`；Lindows 的许可证副本与上游 LICENSE 校验一致，并记录 SAS、Explorer、runbox-linux 上游边界。 | <https://github.com/SYSTEM-Intel-MIC/ElevenDE> |
-| SAS-for-Linux | 当前 `main` 提交 `6f06ef4c2817729d6c1359a800458f683b4878f4` 已包含 MIT LICENSE，版权为 Copyright (c) 2026 macOS-Terminal。 | <https://github.com/macOS-Terminal/SAS-for-Linux> |
-| Explorer-for-Linux | 当前 `main` 提交 `18676e1ce74b4dfa0c4eb897bc6c7cfe681f9db6` 已包含 MIT LICENSE；ElevenDE 固定副本 `80d833958ad84f27b2890160a31d1443fe3c5ba6` 对核心代码进行了重大修改和基本重构。 | <https://github.com/macOS-Terminal/Explorer-for-Linux> |
-| runbox-linux | 当前 `main` 提交 `a8a4786`，README 明确标注 MIT。 | <https://github.com/SYSTEM-Intel-MIC/runbox-linux> |
-| LinuxPCManager | README 声明 Debian/Ubuntu 支持、Python 3 + Tkinter 和相关权限工具；当前页面未显示 LICENSE 文件。 | <https://github.com/SYSTEM-Intel-MIC/LinuxPCManager> |
-| linux-regedit | 当前页面未显示 LICENSE 文件，许可状态未明确。 | <https://github.com/heyManNice/regedit> |
-| bsod | README 说明需要 libdrm、FreeType、fontconfig、libsystemd，且运行时需 root 操作 VT/DRM；仓库 `LICENSE` 为 MIT。 | <https://github.com/heyManNice/bsod> |
-| Device Manager | README 说明 GUI 使用 Fyne、提供 `devmgr`/`devmgr-cli`，危险设备操作通过 pkexec；仓库 `LICENSE` 为 MIT。 | <https://github.com/daimile2/Device-Manager-But-Linux> |
-| Fcitx5 中文 | Debian Bookworm 的 `fcitx5-chinese-addons` 元包依赖拼音和表格输入组件。 | <https://packages.debian.org/bookworm/fcitx5-chinese-addons> |
-| Firefox ESR | Debian Bookworm 官方提供 `firefox-esr`。 | <https://packages.debian.org/bookworm/firefox-esr> |
-| 图片查看器 | Debian Bookworm 官方提供 `eog`（Eye of GNOME）。 | <https://packages.debian.org/bookworm/eog> |
-| Calamares | Debian Bookworm 官方提供发行版独立的图形化安装器框架。 | <https://packages.debian.org/bookworm/calamares> |
-| PeaZip | Debian Bookworm 未提供 `peazip` 包；使用官方 GitHub 11.2.0 Qt6 AMD64 DEB，并固定 SHA-256 `11af7ca6fd633566eb8de969b43ca257b8bce759421775c8c7bbb66105406e58`。 | <https://github.com/peazip/PeaZip/releases/tag/11.2.0> |
+| 桌面核心 | ElevenDE 3.5.1，提交 `b4b97ca4fa0ac46235dd8a20b508ff5c9bdf1026` | 从公开固定提交构建；保持 ElevenDE GPL 与其上游 SAS、Explorer、runbox 的独立许可证边界。[1] |
+| 普通桌面工具 | Lindows Store、Troubleshooting、Defender、Sticky Keys、Widgets、Feedback Hub | 独立 DEB、XDG 入口与许可证副本；所有入口经 ElevenDE 会话适配器并映射为精选 Windows 11 图标，不写入用户配置或自动启动项。 |
+| 命令兼容工具 | Windows 命令兼容工具 | 所有命令使用 `lindows-*` 前缀，避免覆盖 Linux 命令；系统操作继续通过标准系统授权路径执行。 |
+| 安全预览工具 | UAC Preview、Windows Update Preview | 不安装 PAM 模块、不自动接受、不执行自动 apt 升级或重启。 |
+| 阻塞项 | `windowsuninstaller/mmclinux` | 请求的公开地址无法取得且许可证未知，不进入 ISO。 |
+
+完整组件锁定、许可证和桌面入口设计见 [`LINDOWS-2.0-COMPONENT-INTEGRATION.md`](LINDOWS-2.0-COMPONENT-INTEGRATION.md)；版权与分发说明见 [`../THIRD-PARTY-NOTICES.md`](../THIRD-PARTY-NOTICES.md)。
+
+## 启动与安装一致性
+
+BIOS 使用 Isolinux 与同一套 `boot=live components` 内核参数，保留内核和 systemd 的可见滚屏，避免图形服务启动前出现无反馈黑屏。UEFI 在 ISO 重打包阶段使用同样的 Live 参数与 GRUB standalone 引导项，安全图形项另加 `nomodeset`。已安装系统仅在主题描述符和壁纸均存在时写入 `GRUB_THEME`；主题资源以相对路径引用，防止目标路径差异或缺失资源造成 GRUB 主题加载警告。
+
+Calamares 后安装脚本会将 Lindows 主题与壁纸复制到目标系统，再写入 `/etc/default/grub.d/00-lindows.cfg`。若资源缺失，脚本移除该主题 drop-in，而非留下悬空的主题引用。
+
+## 可追溯性与 ISO 验收
+
+设备管理器在 Lindows 构建副本中固定使用 Fyne `VariantLight`，不继承暗色系统偏好。交互终端中的 `sudo` 仍指向未修改的系统认证和 PAM；Lindows 仅通过 `lindows-sudo` 先执行原生密码验证、再显示 UAC 确认，取消或 UI 失败时不执行目标命令。
+
+每个 Actions 构建会生成以下审计材料：组件 DEB 的 `SHA256SUMS`、`LINDOWS-2.0-COMPONENTS.txt`、包含来源/二进制锁及图标覆盖哈希的 `LINDOWS-2.0-BUILD-MANIFEST.json`、ISO 校验值与 El Torito 报告。工作流还会从最终 ISO 解出 BIOS syslinux 模块、EFI 镜像和 squashfs，验证 Calamares、最小 Live sudoers、无 LightDM、ElevenDE 原生显示服务、组件适配器、Lindows Store 和 20 个 Windows 11 图标；随后在 QEMU 的 BIOS 与 OVMF UEFI 模式下进行有界启动冒烟测试。
+
+这类检查证明映像能进入引导窗口和保留关键结构，但不替代真实硬件、完整 Calamares 分区安装或图形桌面手工验收。发布前仍应保留 ISO、manifest、工作流日志和对应提交。
+
+## 许可证与商标
+
+Lindows 自有代码、配置、品牌与文档按 GPL-3.0-or-later 发布。聚合 ISO 不会使所有第三方代码自动成为 GPL；已安装系统应以 `/usr/share/doc/<package>/copyright` 和本仓库 [`LICENSES/`](../LICENSES/) 中的上游文本为准。Windows、Microsoft、Copilot 等标记可能属于相应权利人；Lindows 不代表或获其授权。
+
+## 参考
+
+[1]: https://github.com/SYSTEM-Intel-MIC/ElevenDE/tree/b4b97ca4fa0ac46235dd8a20b508ff5c9bdf1026 "ElevenDE 3.5.1 fixed source"

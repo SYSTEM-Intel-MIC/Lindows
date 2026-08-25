@@ -4,24 +4,12 @@
 set -euo pipefail
 
 ROOT="${ROOT:-/workspace}"
-OUT="$ROOT/artifacts"
-PKGS="$OUT/packages"
-WORK="$OUT/work"
-ELEV_URL="https://github.com/SYSTEM-Intel-MIC/ElevenDE.git"
-ELEV_REV="80d833958ad84f27b2890160a31d1443fe3c5ba6"
-
-PCMANAGER_URL="https://github.com/SYSTEM-Intel-MIC/LinuxPCManager.git"
-PCMANAGER_REV="4a744338aff580d4c7260bb00cbebfe8521bcf80"
-REGEDIT_URL="https://github.com/heyManNice/regedit.git"
-REGEDIT_REV="0e3de3dcfbf1aca0fbc8dda2be307a1224c0f04f"
-BSOD_URL="https://github.com/heyManNice/bsod.git"
-BSOD_REV="45757f64e6fa2983e92382a2ba8e47b1685d92f9"
-DEVMGR_URL="https://github.com/daimile2/Device-Manager-But-Linux.git"
-DEVMGR_REV="e7e8238cc72a08ce0302e4ffbd529838f49fbed4"
-PEAZIP_URL="https://github.com/peazip/PeaZip/releases/download/11.2.0/peazip_11.2.0.LINUX.Qt6-1_amd64.deb"
-PEAZIP_SHA256="11af7ca6fd633566eb8de969b43ca257b8bce759421775c8c7bbb66105406e58"
-COPILOT_URL="https://github.com/com-in/Copilot-For-Linux/releases/download/v1.0.0/copilot-for-linux_1.0.0_amd64.deb"
-COPILOT_SHA256="744120cc972fe66b0e1040a526943f8d8daa92de272d6cec4e3bcad9acfa0158"
+OUT="${OUT:-$ROOT/artifacts}"
+PKGS="${PKGS:-$OUT/packages}"
+WORK="${WORK:-$OUT/work}"
+SOURCE_CACHE="${LINDOWS_SOURCE_CACHE:-$OUT/source-cache}"
+SOURCE_LOCK="$ROOT/packages/sources.lock.tsv"
+BINARY_LOCK="$ROOT/packages/binaries.lock.tsv"
 
 log() { printf '\n==> %s\n' "$*"; }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
@@ -30,11 +18,38 @@ require_root() {
     [ "$(id -u)" = 0 ] || die "this build must run as root inside the Debian build container"
 }
 
-clone_pinned() {
-    local url="$1" rev="$2" dst="$3"
-    git clone --filter=blob:none "$url" "$dst"
-    git -C "$dst" checkout --detach "$rev"
-    [ "$(git -C "$dst" rev-parse HEAD)" = "$rev" ] || die "unexpected revision for $url"
+source_locked() {
+    local id="$1" dst="$2" row url rev license role cache
+    row="$(awk -F '\t' -v id="$id" '$1 == id { print; exit }' "$SOURCE_LOCK")"
+    [ -n "$row" ] || die "source lock has no entry for $id"
+    IFS=$'\t' read -r _ url rev license role <<<"$row"
+    cache="$SOURCE_CACHE/${id}-${rev}"
+    if [ ! -d "$cache/.git" ]; then
+        rm -rf "$cache"
+        mkdir -p "$(dirname "$cache")"
+        git clone --filter=blob:none "$url" "$cache"
+    fi
+    # actions/cache restores files with the runner UID while this recipe runs
+    # as root in a Bookworm container. Mark only this immutable cache checkout
+    # as safe before inspecting its locked commit.
+    git config --global --add safe.directory "$cache"
+    if ! git -C "$cache" cat-file -e "${rev}^{commit}" 2>/dev/null; then
+        git -C "$cache" fetch --filter=blob:none origin "$rev"
+    fi
+    git -C "$cache" checkout --detach "$rev" >/dev/null
+    [ "$(git -C "$cache" rev-parse HEAD)" = "$rev" ] || die "unexpected revision for $id"
+    rm -rf "$dst"
+    mkdir -p "$dst"
+    git -C "$cache" archive "$rev" | tar -x -C "$dst"
+}
+
+fetch_binary_locked() {
+    local id="$1" row filename url digest license
+    row="$(awk -F '\t' -v id="$id" '$1 == id { print; exit }' "$BINARY_LOCK")"
+    [ -n "$row" ] || die "binary lock has no entry for $id"
+    IFS=$'\t' read -r _ filename url digest license <<<"$row"
+    curl --fail --location --retry 3 --output "$PKGS/$filename" "$url"
+    printf '%s  %s\n' "$digest" "$filename" | (cd "$PKGS" && sha256sum -c -)
 }
 
 make_deb() {
@@ -55,9 +70,11 @@ CONTROL
 }
 
 require_root
+[ -f "$SOURCE_LOCK" ] || die "missing package source lock: $SOURCE_LOCK"
+[ -f "$BINARY_LOCK" ] || die "missing binary source lock: $BINARY_LOCK"
 export DEBIAN_FRONTEND=noninteractive
-rm -rf "$OUT"
-mkdir -p "$PKGS" "$WORK"
+rm -rf "$PKGS" "$WORK"
+mkdir -p "$PKGS" "$WORK" "$SOURCE_CACHE"
 
 log "installing component build dependencies"
 apt-get update
@@ -66,29 +83,41 @@ apt-get install -y --no-install-recommends \
     build-essential cmake ninja-build meson pkg-config \
     libgtk-3-dev libjson-glib-dev libdrm-dev libfreetype-dev \
     libfontconfig1-dev libsystemd-dev libgl1-mesa-dev libxkbcommon-dev \
-    libxrandr-dev xorg-dev libxi-dev libxtst-dev libdbus-1-dev libcrypt-dev libpam0g-dev \
+    libxrandr-dev xorg-dev libxi-dev libxtst-dev libdbus-1-dev libcrypt-dev libpam0g-dev libwayland-dev wayland-protocols \
     libgdk-pixbuf-2.0-dev librsvg2-bin qt6-base-dev qt6-svg-dev \
     libgl1-mesa-dev libpng-dev libxft-dev libx11-dev libfontconfig1-dev \
     libgtk-3-dev \
-    python3 python3-gi gir1.2-gtk-3.0 \
-    udisks2 libblockdev-part2 libblockdev-fs2 dosfstools ntfs-3g mtools
+    python3 python3-pil python3-gi gir1.2-gtk-3.0 \
+    udisks2 dosfstools ntfs-3g mtools
 
-log "cloning cloud ElevenDE source at fixed GPL-audited revision"
+log "acquiring published ElevenDE 3.5.1 from the locked source cache"
 ELEV_SRC="$WORK/ElevenDE"
-clone_pinned "$ELEV_URL" "$ELEV_REV" "$ELEV_SRC"
-[ -f "$ELEV_SRC/build-deb.sh" ] || die "cloud ElevenDE source package is incomplete"
+source_locked elevende "$ELEV_SRC"
+[ -f "$ELEV_SRC/build-deb.sh" ] || die "ElevenDE source package is incomplete"
 log "patching only the Lindows build copy: execute desktop .desktop launchers"
 python3 "$ROOT/scripts/patch-elevende-desktop-launcher.py" "$ELEV_SRC/shell/main.c"
 python3 "$ROOT/scripts/patch-elevende-shell-display.py" "$ELEV_SRC/shell/main.c"
+python3 "$ROOT/scripts/patch-elevende-taskbar-filter.py" "$ELEV_SRC/shell/main.c"
 python3 "$ROOT/scripts/patch-elevende-settings-display.py" "$ELEV_SRC/apps/settings/main.cpp"
+python3 "$ROOT/scripts/patch-elevende-lindows-component-icons.py" "$ELEV_SRC/shell/main.c"
+python3 "$ROOT/scripts/patch-elevende-lindows-menu.py" "$ELEV_SRC/shell/main.c"
+python3 "$ROOT/scripts/patch-elevende-lindows-actions.py" "$ELEV_SRC/shell/main.c" "$ELEV_SRC/wm/sas-config.json"
+python3 "$ROOT/scripts/patch-elevende-sas-power.py" "$ELEV_SRC/SAS-for-Linux/src/saswindow.cpp"
+python3 "$ROOT/scripts/patch-elevende-session-policy.py" "$ELEV_SRC/session/elevende-session"
 python3 "$ROOT/scripts/patch-elevende-lock-auth.py" "$ELEV_SRC/shell/lock.c"
-# The lock screen now delegates authentication to Debian's PAM lightdm stack.
-sed -i 's/ -lcrypt$/ -lcrypt -lpam/' "$ELEV_SRC/shell/Makefile"
+python3 "$ROOT/scripts/patch-elevende-icon-overlay-staging.py" "$ELEV_SRC/build-deb.sh"
+[ -d "$ROOT/packages/elevende/icons" ] || die "Lindows Windows 11 icon overlay is missing"
+rm -rf "$ELEV_SRC/assets/icons-lindows-overlay"
+cp -a "$ROOT/packages/elevende/icons" "$ELEV_SRC/assets/icons-lindows-overlay"
+# ElevenDE's own winlogin/lock code is preserved. Lindows does not replace it
+# with the retired LightDM PAM mutation; the dedicated session policy handles
+# Live bypass and installed-system authentication separately.
 # The shell patch uses the RandR API directly; make the pinned upstream shell
 # link against libXrandr in the isolated component build.
 sed -i 's/x11 xft fontconfig freetype2 libpng/x11 xft fontconfig freetype2 libpng xrandr/g' "$ELEV_SRC/shell/Makefile"
+sed -i 's/$(LOCK_LIBS) -lcrypt/$(LOCK_LIBS) -lcrypt -lpam -lXrandr/' "$ELEV_SRC/shell/Makefile"
 
-log "building cloud ElevenDE 3.5.1 from $ELEV_REV"
+log "building ElevenDE 3.5.1 from locked source revision"
 (
     cd "$ELEV_SRC"
     BUILD_DIR="$WORK/elevende-build" bash ./build-deb.sh
@@ -97,7 +126,7 @@ log "building cloud ElevenDE 3.5.1 from $ELEV_REV"
 
 log "building LinuxPCManager package"
 PC="$WORK/linux-pcmanager"
-clone_pinned "$PCMANAGER_URL" "$PCMANAGER_REV" "$PC"
+source_locked linux-pcmanager "$PC"
 STAGE="$WORK/pkg-linux-pcmanager"
 mkdir -p "$STAGE/usr/lib/linux-pcmanager" "$STAGE/usr/bin" "$STAGE/usr/share/applications"
 cp -a "$PC/src/." "$STAGE/usr/lib/linux-pcmanager/"
@@ -110,7 +139,7 @@ make_deb "linux-pcmanager" "1.0.0+lindows1" "python3, python3-tk, policykit-1, x
 
 log "building linux-regedit package"
 REG="$WORK/regedit"
-clone_pinned "$REGEDIT_URL" "$REGEDIT_REV" "$REG"
+source_locked regedit "$REG"
 meson setup "$REG/build" "$REG" --buildtype=release
 meson compile -C "$REG/build"
 STAGE="$WORK/pkg-linux-regedit"
@@ -130,41 +159,74 @@ make_deb "linux-regedit" "0.1+lindows1" "libgtk-3-0, libjson-glib-1.0-0, man-db"
 
 log "building Lindows BSOD package"
 BSOD="$WORK/bsod"
-clone_pinned "$BSOD_URL" "$BSOD_REV" "$BSOD"
+source_locked bsod "$BSOD"
 meson setup "$BSOD/build" "$BSOD" --buildtype=release
 meson compile -C "$BSOD/build"
 STAGE="$WORK/pkg-lindows-bsod"
 install -Dm755 "$BSOD/build/bsod" "$STAGE/usr/local/sbin/lindows-bsod"
+# The upstream renderer intentionally owns a dedicated VT/DRM master.
+# Lindows invokes only the fixed-function polkit dispatcher; it alone injects
+# --restore, so this demo cannot reboot the machine or run arbitrary commands.
 install -Dm755 /dev/stdin "$STAGE/usr/local/bin/lindows-bsod-demo" <<'LAUNCH'
 #!/bin/sh
-# The Lindows menu entry is deliberately a reversible demonstration.
-# --restore overrides upstream's default reboot behavior after the animation.
-exec /usr/local/sbin/lindows-bsod --restore --show "Lindows demonstration"
+set -eu
+exec pkexec /usr/local/libexec/lindows-privileged-action bsod
 LAUNCH
 install -Dm644 /dev/stdin "$STAGE/usr/share/applications/lindows-bsod.desktop" <<'DESKTOP'
 [Desktop Entry]
 Type=Application
 Name=Lindows Blue Screen Demo
 Name[zh_CN]=Lindows 蓝屏演示
-Comment=Show a temporary blue-screen demonstration and restore the desktop
-Exec=pkexec /usr/local/bin/lindows-bsod-demo
-Icon=dialog-warning
+Comment=Safe blue-screen demonstration; Escape returns to the desktop
+Exec=lindows-bsod-demo
+Icon=lindows-bsod
 Terminal=false
 Categories=System;
 DESKTOP
-make_deb "lindows-bsod" "1.0.2+lindows1" "libdrm2, libfreetype6, libfontconfig1, libsystemd0" "$STAGE" "Lindows blue-screen demonstration tool"
+install -Dm644 "$BSOD/LICENSE" "$STAGE/usr/share/doc/lindows-bsod/copyright"
+make_deb "lindows-bsod" "1.0.4+lindows4" "libc6, libdrm2, libfreetype6, libfontconfig1, libsystemd0, policykit-1" "$STAGE" "Safe reversible Lindows blue-screen TTY demonstration"
 
 log "building Device Manager package"
 DEVMGR="$WORK/devmgr"
-clone_pinned "$DEVMGR_URL" "$DEVMGR_REV" "$DEVMGR"
+source_locked device-manager "$DEVMGR"
 (
     cd "$DEVMGR"
-    # The pinned upstream revision intentionally does not track go.sum.
-    # Resolve and record module checksums in the disposable build tree first.
-    go mod tidy
+    # Upstream lacks go.sum. The Lindows package layer carries the audited
+    # lock, then forces readonly resolution instead of mutating upstream files.
+    install -m 0644 "$ROOT/vendor/lindows-device-manager.go.sum" go.sum
+    python3 - "$DEVMGR/ui.go" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+s = p.read_text()
+old = '''func (t noSepTheme) Color(n fyne.ThemeColorName, v fyne.ThemeVariant) color.Color {
+\treturn theme.DefaultTheme().Color(n, v)
+}
+'''
+new = '''func (t noSepTheme) Color(n fyne.ThemeColorName, v fyne.ThemeVariant) color.Color {
+\t// Lindows is light-only; never inherit a dark Fyne/system variant.
+\treturn theme.DefaultTheme().Color(n, theme.VariantLight)
+}
+'''
+if old not in s:
+    raise SystemExit("Device Manager theme block not found")
+s = s.replace(old, new, 1)
+replacements = {
+    'switch {\n\tcase strings.Contains(data, "manjaro")': 'switch {\n\tcase strings.Contains(data, "lindows"):\n\t\treturn "lindows"\n\tcase strings.Contains(data, "manjaro")',
+    'app.NewWithID("devmgr.linux")': 'app.NewWithID("devmgr.lindows")',
+    'a.NewWindow("设备管理器")': 'a.NewWindow("Lindows 设备管理器")',
+    '"Microsoft 管理控制台\\n(Linux 兼容实现)"': '"Lindows 管理控制台\\n(Lindows 兼容实现)"',
+    '"设备管理器\\nLinux 版"': '"Lindows 设备管理器\\nLindows 2.0"',
+}
+for source, replacement in replacements.items():
+    if source not in s:
+        raise SystemExit(f"Device Manager branding anchor not found: {source!r}")
+    s = s.replace(source, replacement, 1)
+p.write_text(s)
+PY
     go mod download
-    CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o devmgr ui.go
-    go build -trimpath -ldflags="-s -w" -o devmgr-cli cli.go
+    CGO_ENABLED=1 go build -mod=readonly -trimpath -ldflags="-s -w" -o devmgr ui.go
+    go build -mod=readonly -trimpath -ldflags="-s -w" -o devmgr-cli cli.go
 )
 STAGE="$WORK/pkg-lindows-devmgr"
 install -Dm755 "$DEVMGR/devmgr" "$STAGE/usr/local/bin/devmgr"
@@ -172,24 +234,43 @@ install -Dm755 "$DEVMGR/devmgr-cli" "$STAGE/usr/local/bin/devmgr-cli"
 install -Dm644 /dev/stdin "$STAGE/usr/share/applications/lindows-device-manager.desktop" <<'DESKTOP'
 [Desktop Entry]
 Type=Application
-Name=Device Manager
-Name[zh_CN]=设备管理器
-Comment=View Linux hardware in a Windows-style device manager
+Name=Lindows Device Manager
+Name[zh_CN]=Lindows 设备管理器
+Comment=View Lindows hardware in a Windows-style device manager
 Exec=devmgr
 Icon=computer
 Terminal=false
 Categories=System;Settings;HardwareSettings;
 DESKTOP
-make_deb "lindows-device-manager" "0.1.0+lindows1" "libgl1, libx11-6, libxrandr2, libxinerama1, libxcursor1, libxi6, policykit-1, pciutils, usbutils" "$STAGE" "Windows-style Linux device manager"
+install -Dm644 "$DEVMGR/LICENSE" "$STAGE/usr/share/doc/lindows-device-manager/copyright"
+make_deb "lindows-device-manager" "0.1.0+lindows2" "libgl1, libx11-6, libxrandr2, libxinerama1, libxcursor1, libxi6, policykit-1, pciutils, usbutils" "$STAGE" "Windows-style Linux device manager"
 
-log "downloading fixed Copilot for Linux package"
-COPILOT_DEB="$PKGS/copilot-for-linux_1.0.0_amd64.deb"
-curl --fail --location --retry 3 --output "$COPILOT_DEB" "$COPILOT_URL"
-printf '%s  %s\n' "$COPILOT_SHA256" "$(basename "$COPILOT_DEB")" | (cd "$PKGS" && sha256sum -c -)
+log "building Lindows Store from locked source"
+STORE="$WORK/linux-store"
+source_locked linux-store "$STORE"
+python3 "$ROOT/scripts/patch-lindows-component-sources.py" store "$STORE"
+[ -f "$STORE/native/linux-store" ] || die "Linux Store launcher is missing"
+[ -f "$STORE/native/linux_store.py" ] || die "Linux Store Python source is missing"
+[ -d "$STORE/native/assets" ] || die "Linux Store visual assets are missing"
+STAGE="$WORK/pkg-lindows-store"
+install -Dm755 "$STORE/native/linux_store.py" "$STAGE/usr/lib/lindows-store/linux_store.py"
+install -Dm755 /dev/stdin "$STAGE/usr/bin/lindows-store" <<'LAUNCH'
+#!/bin/sh
+exec python3 /usr/lib/lindows-store/linux_store.py "$@"
+LAUNCH
+install -Dm644 "$STORE/native/linux-store.desktop" "$STAGE/usr/share/applications/lindows-store.desktop"
+sed -i -e 's/^Name=Linux Store$/Name=Lindows Store/' \
+       -e 's/^Exec=.*/Exec=lindows-store/' \
+       -e 's/^Icon=.*/Icon=lindows-store/' "$STAGE/usr/share/applications/lindows-store.desktop"
+install -d "$STAGE/usr/share/lindows-store"
+install -m 0644 "$STORE/native/assets/"* "$STAGE/usr/share/lindows-store/"
+install -Dm644 "$STORE/LICENSE" "$STAGE/usr/share/doc/lindows-store/copyright"
+make_deb "lindows-store" "2.3.0+lindows2" "python3, python3-gi, gir1.2-gtk-3.0, apt, polkitd, pkexec" "$STAGE" "Windows-style Lindows Store backed by configured APT repositories"
 
-log "downloading fixed PeaZip package"
-curl --fail --location --retry 3 --output "$PKGS/peazip_11.2.0.LINUX.Qt6-1_amd64.deb" "$PEAZIP_URL"
-printf '%s  %s\n' "$PEAZIP_SHA256" "peazip_11.2.0.LINUX.Qt6-1_amd64.deb" | (cd "$PKGS" && sha256sum -c -)
+log "downloading fixed release DEBs described by the binary lock"
+fetch_binary_locked copilot-for-linux
+fetch_binary_locked peazip
+fetch_binary_locked edge
 
 (
     cd "$PKGS"

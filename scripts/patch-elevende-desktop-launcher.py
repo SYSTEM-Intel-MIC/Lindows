@@ -52,8 +52,34 @@ new = '''    } else if (strstr(path, ".desktop") && access(path, R_OK) == 0) {
 if old not in text:
     raise SystemExit("ElevenDE open_path block was not found; source layout changed")
 text = text.replace(old, new, 1)
+old_label = '''            snprintf(ic[nic].label, sizeof ic[nic].label, "%s", de->d_name);
+            snprintf(ic[nic].path, sizeof ic[nic].path, "%s/%s", dir, de->d_name);
+'''
+new_label = '''            size_t label_len = strlen(de->d_name);
+            if (label_len > 8 && !strcmp(de->d_name + label_len - 8, ".desktop"))
+                label_len -= 8;
+            snprintf(ic[nic].label, sizeof ic[nic].label, "%.*s",
+                     (int)label_len, de->d_name);
+            snprintf(ic[nic].path, sizeof ic[nic].path, "%s/%s", dir, de->d_name);
+'''
+if old_label not in text:
+    raise SystemExit("ElevenDE desktop label block was not found; source layout changed")
+text = text.replace(old_label, new_label, 1)
 old_icon = '        const char *nm = ic[i].is_dir ? "folder" : file_icon_name(ic[i].label);\n        int kind = ic[i].is_dir ? VI_FOLDER : VI_FILE;\n'
-new_icon = '        const char *nm = ic[i].is_dir ? "folder" : file_icon_name(ic[i].label);\n        int kind = ic[i].is_dir ? VI_FOLDER : VI_FILE;\n        if (strstr(ic[i].path, "/Install Lindows.desktop"))\n            nm = "lindows-installer";\n'
+new_icon = '''        const char *nm = ic[i].is_dir ? "folder" : file_icon_name(ic[i].label);
+        int kind = ic[i].is_dir ? VI_FOLDER : VI_FILE;
+        /* ElevenDE enumerates ~/Desktop as ordinary files.  Lindows therefore
+         * maps its known launchers here, at the same layer as Install Lindows,
+         * instead of relying on the .desktop Icon= field. */
+        if (strstr(ic[i].path, "/Install Lindows.desktop"))
+            nm = "lindows-installer";
+        else if (strstr(ic[i].path, "/注册表编辑器.desktop"))
+            nm = "linux-regedit";
+        else if (strstr(ic[i].path, "/Microsoft Edge.desktop"))
+            nm = "microsoft-edge";
+        else if (strstr(ic[i].path, "/终端.desktop"))
+            nm = "lindows-windowshit";
+'''
 if old_icon not in text:
     raise SystemExit("ElevenDE desktop icon block was not found; source layout changed")
 path.write_text(text.replace(old_icon, new_icon, 1))

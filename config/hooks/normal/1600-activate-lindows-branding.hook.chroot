@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -eu
 
 # Fail the image build early if the installed target cannot perform a real
@@ -45,9 +45,10 @@ install -Dm644 /boot/grub/themes/lindows/theme.txt \
     /usr/share/lindows/branding/theme.txt
 chmod 0755 /usr/local/libexec/lindows-target-postinstall.sh
 
-# Register a target-chroot shellprocess after the normal package step. It
-# removes Live-only entries and performs target-side GRUB, lock and hardware
-# initialization before the installer unmounts the media.
+# Register a target-chroot shellprocess after Calamares creates the selected
+# user. This must not follow `packages`, because the Live temporary `user`
+# account is present then while the account selected in Calamares is created
+# by the later `users` module.
 SETTINGS=/etc/calamares/settings.conf
 if ! grep -q '^-[[:space:]]*id:[[:space:]]*lindows-postinstall' "$SETTINGS" 2>/dev/null; then
     cat >> "$SETTINGS" <<'EOF'
@@ -60,7 +61,8 @@ EOF
 fi
 if ! grep -q '^[[:space:]]*-[[:space:]]*shellprocess@lindows-postinstall[[:space:]]*$' "$SETTINGS"; then
     awk '
-        !done && /^[[:space:]]*-[[:space:]]*packages[[:space:]]*$/ {
+        /^[[:space:]]*-[[:space:]]*exec:[[:space:]]*$/ { in_exec=1 }
+        !done && in_exec && /^[[:space:]]*-[[:space:]]*users[[:space:]]*$/ {
             indent=$0; sub(/[^[:space:]].*/, "", indent)
             print $0
             print indent "- shellprocess@lindows-postinstall"
@@ -79,11 +81,14 @@ if ! grep -q '^slideshow:' "$BRANDING/branding.desc"; then
     printf '\nslideshow: "show.qml"\nslideshowAPI: 2\n' >> "$BRANDING/branding.desc"
 fi
 
-# The default ElevenDE fallback makes the brand wallpaper available even if a
-# Live-user skeleton is not copied by a particular live-config profile.
-install -Dm644 /usr/share/lindows/branding/lindows-aurora-wallpaper.png \
-    /usr/local/share/elevende-shell/wallpaper.png
-install -Dm644 /usr/share/lindows/branding/lindows-aurora-wallpaper.png \
+# Keep ElevenDE 3.5.1's own light default wallpaper.  The older Lindows 1.0
+# Aurora asset remains available only for the separately branded GRUB theme;
+# it must never overwrite the desktop default or a new user's wallpaper.
+[ -s /usr/local/share/elevende-shell/wallpaper.png ] || {
+    echo "Lindows: ElevenDE default wallpaper is missing" >&2
+    exit 1
+}
+install -Dm644 /usr/local/share/elevende-shell/wallpaper.png \
     /etc/skel/.local/share/elevende/wallpaper.png
 
 # Use the Lindows mark as a real ElevenDE theme icon. ElevenDE resolves desktop
@@ -108,8 +113,11 @@ EOF
 # Lindows-branded Calamares entry remains the only graphical installer entry.
 for dir in /usr/share/applications /etc/xdg/autostart /etc/skel/Desktop; do
     [ -d "$dir" ] || continue
-    find "$dir" -maxdepth 1 -type f -name '*.desktop' -print0 2>/dev/null | while IFS= read -r -d '' entry; do
-        if grep -qiE '(^Name(\[[^]]+\])?=.*(Install Debian|Debian Installer))|debian-installer-launcher|debian-installer.desktop' "$entry" 2>/dev/null; then
+    # This hook runs under dash, whose `read` lacks -d.  The direct glob is
+    # POSIX-safe and still covers all package-provided desktop filenames.
+    for entry in "$dir"/*.desktop; do
+        [ -f "$entry" ] || continue
+        if grep -qiE '(^Name(\[[^]]+\])?=.*(Install Debian|Debian Installer|Install System|安装系统))|debian-installer-launcher|debian-installer.desktop|install-system.desktop' "$entry" 2>/dev/null; then
             rm -f "$entry"
         fi
     done
@@ -118,16 +126,18 @@ chmod 0755 '/etc/skel/Desktop/Install Lindows.desktop' 2>/dev/null || true
 chmod 0755 /usr/share/applications/lindows-installer.desktop 2>/dev/null || true
 
 # Keep human-readable system identity coherent outside the desktop itself.
-printf 'Lindows 1.0 \\n \\l\n' > /etc/issue
-printf 'Lindows 1.0\n' > /etc/issue.net
+printf 'Lindows 2.0 \\n \\l\n' > /etc/issue
+printf 'Lindows 2.0\n' > /etc/issue.net
 
-# grub-mkconfig reads /etc/default/grub itself rather than drop-in files.
-# Append final assignments so both Live inspection and the installed target use
-# the Lindows bootloader identity and theme when update-grub is invoked.
-if [ -f /etc/default/grub ]; then
+# GRUB themes are read from /etc/default/grub by grub-mkconfig.  Only append
+# the Lindows theme assignment after both theme assets have been staged.  This
+# prevents a missing file from becoming a boot-time GRUB theme warning.
+if [ -f /etc/default/grub ] && \
+   [ -s /boot/grub/themes/lindows/theme.txt ] && \
+   [ -s /boot/grub/themes/lindows/lindows-aurora-wallpaper.png ]; then
     cat >> /etc/default/grub <<'EOF'
 
-# Lindows bootloader identity and presentation.
+# Lindows 2.0 bootloader identity and presentation.
 GRUB_DISTRIBUTOR="Lindows"
 GRUB_THEME="/boot/grub/themes/lindows/theme.txt"
 GRUB_TIMEOUT_STYLE=menu
@@ -135,6 +145,9 @@ GRUB_TIMEOUT=6
 GRUB_DEFAULT=0
 GRUB_DISABLE_OS_PROBER=false
 EOF
+elif [ -f /etc/default/grub ]; then
+    # Never leave a stale Lindows theme reference if staging failed.
+    sed -i '\|^GRUB_THEME="/boot/grub/themes/lindows/theme.txt"$|d' /etc/default/grub
 fi
 
 if [ -x "/opt/Copilot For Linux/copilot-for-linux" ]; then
@@ -153,7 +166,7 @@ Type=Application
 Name=Copilot
 Name[zh_CN]=Copilot
 Comment=AI desktop assistant for Lindows
-Exec=/usr/local/bin/lindows-copilot %U
+Exec=/usr/local/libexec/lindows-component-launch /usr/local/bin/lindows-copilot %U
 Terminal=false
 Icon=copilot-for-linux
 StartupWMClass=Copilot For Linux

@@ -1,5 +1,0 @@
-#!/bin/sh
-# auto/config — live-build 配置钩子
-# 已被 workflow 直接调用 lb config 取代，此脚本留空。
-# 如果 live-build 仍要调用它，不做任何事（由 workflow 步骤8保证配置已存在）。
-exit 0

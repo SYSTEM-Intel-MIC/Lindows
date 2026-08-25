@@ -1,86 +1,110 @@
-# Lindows
+# Lindows 2.0
 
-**Lindows** 是由 **SYSTEM-Intel-MIC** 定制的 Debian Bookworm AMD64 轻量级 Live 发行版。它以 ElevenDE 为默认 X11 桌面，提供 Windows 风格的开始菜单、任务栏、资源管理器、设置、任务管理器、运行对话框、SAS 安全界面和中文输入环境，而不安装完整 GNOME、KDE 或大型桌面元包。
+**Lindows 2.0** 是由 **SYSTEM-Intel-MIC** 维护的 Debian Bookworm AMD64 Live 发行版集成层。它以 **ElevenDE 3.5.1** 为核心 X11 桌面，提供 Windows 风格的开始菜单、任务栏、统一标题栏、资源管理器、设置、任务管理器、运行对话框、中文输入、Calamares 安装器和一组受控集成的 Windows 风格工具。
 
-> 本仓库通过 GitHub Actions 构建 **LiveCD + 图形化安装器**。每次主分支提交均会生成 ISO、ISO 校验文件、构建日志，以及 ElevenDE 和系统工具的本地 DEB 包集。
+> `main` 始终保持正式发布基线。所有 Lindows 2.0 工作均位于隔离的 `lindows-2.0-integration` 分支；该分支可以运行持续集成并上传构建工件，但**不会创建 GitHub Release**，也不会改动 `main`。
 
-## 系统组成
+## 发行版集成架构
 
-| 分类 | Lindows 提供内容 |
-|---|---|
-| 桌面与会话 | ElevenDE 3.5.1、Openbox、picom、LightDM GTK Greeter、Xorg、NetworkManager。 |
-| 发行版品牌 | `Lindows 1.0 (Bookworm)`、SYSTEM-Intel-MIC 作者标识、原创深蓝桌面壁纸、BIOS/UEFI Live 启动菜单和已安装系统 GRUB Lindows 主题。 |
-| 安装程序 | Calamares 图形化安装器使用 Lindows 名称、标志、壁纸和引导项名称；桌面和应用菜单均提供“安装 Lindows”入口。ISO 不再打包会触发过时 Contents 索引请求的 Debian Installer Live。 |
-| 中文支持 | Fcitx5、中文扩展、拼音、Noto CJK；GTK、Qt 和 XIM 环境变量已预配置。 |
-| 日常软件 | Firefox ESR、VLC、Eye of GNOME 图片查看器、PeaZip Qt6。 |
-| Lindows 服务应用 | Copilot for Linux AI 桌面面板。 |
-| Windows 风格工具 | LinuxPCManager、linux-regedit、Lindows 蓝屏演示工具、Device Manager for Linux。 |
+Lindows 不把所有上游项目做成长期完整 fork，也不让 `live-build` 直接面对 GitHub。仓库只维护“如何把固定上游软件变成 Lindows 一部分”的 package layer、patch layer 与 desktop integration layer；每个正式构建先产出可验证 DEB，再由 `live-build` 只消费已验证包集。
 
-## 组件来源与许可
+| 层 | 仓库位置 | 职责 | 不做什么 |
+| --- | --- | --- | --- |
+| **来源锁** | `packages/sources.lock.tsv`、`packages/binaries.lock.tsv` | 固定每个 Git 项目的 URL/提交，或固定预构建 DEB 的 URL/SHA-256。 | 不记录浮动分支或“最新版”标签。 |
+| **源码缓存** | `artifacts/source-cache/` 与 CI 缓存 | 将锁定提交缓存到一次性构建工作树，允许同一来源在核心/附加 recipe 间复用。 | 不提交完整第三方 Git 历史或工作副本。 |
+| **包 recipe** | `scripts/build-lindows-components.sh`、`scripts/build-lindows2-extra-components.sh` | 在独立 Bookworm 容器中获取锁定来源、应用受控适配、构建 DEB 并写入哈希。 | 不执行上游 `install.sh`，不让 Live ISO 直接拉取源码。 |
+| **补丁层** | `packages/elevende/patches/` 与受审计补丁脚本 | 对构建副本应用显示重排、桌面入口、会话策略和图标解析改造。 | 不修改或推送 ElevenDE 上游仓库。 |
+| **桌面集成层** | `config/includes.chroot/`、`config/hooks/normal/` | 统一 ElevenDE 会话变量、标题栏、启动入口、Windows 11 图标和 GTK 控件主题。 | 不替代第三方工具的业务逻辑。 |
+| **Live 输入层** | `scripts/stage-lindows-live-inputs.sh` | 只向 Live chroot 放入已校验 DEB、SHA256、清单和执行钩子。 | 不重新下载组件。 |
 
-Lindows 使用固定提交构建第三方组件，避免构建时隐式获取默认分支的未知更新。具体提交、构建边界、危险功能限制和 PeaZip 校验值见 [Lindows 架构说明](docs/LINDOWS_ARCHITECTURE.md)。
+这种结构将上游更新、Lindows 适配、包构建和 ISO 组装明确分离。`LINDOWS-2.0-BUILD-MANIFEST.json` 同时记录 Lindows 提交、包哈希、来源锁、二进制锁、ElevenDE 图标映射及每个覆盖图标的 SHA-256，便于复核最终 ISO 的输入。
 
-| 组件 | 上游项目 | 说明 |
-|---|---|---|
-| ElevenDE | [SYSTEM-Intel-MIC/ElevenDE](https://github.com/SYSTEM-Intel-MIC/ElevenDE) | 云端固定提交 `80d833958ad84f27b2890160a31d1443fe3c5ba6`；ElevenDE 自有代码按 GPL-3.0-or-later 发布，并集成 SAS-for-Linux、Explorer-for-Linux 与 runbox-linux。 |
-| LinuxPCManager | [SYSTEM-Intel-MIC/LinuxPCManager](https://github.com/SYSTEM-Intel-MIC/LinuxPCManager) | Windows 风格电脑管家。 |
-| linux-regedit | [heyManNice/regedit](https://github.com/heyManNice/regedit) | Linux 配置文件的注册表风格浏览器。 |
-| lindows-bsod | [heyManNice/bsod](https://github.com/heyManNice/bsod) | 仅按需启动的 DRM/VT 蓝屏演示工具。 |
-| Device Manager | [daimile2/Device-Manager-But-Linux](https://github.com/daimile2/Device-Manager-But-Linux) | Windows 风格硬件与驱动查看工具。 |
-| PeaZip | [PeaZip](https://github.com/peazip/PeaZip) | 已固定版本并在构建中校验 SHA-256 的归档管理器。 |
-| Copilot for Linux | [com-in/Copilot-For-Linux](https://github.com/com-in/Copilot-For-Linux) | GPL-3.0；固定 v1.0.0 amd64 DEB 并校验 SHA-256；不会预置 API 密钥。 |
+## 桌面、会话与安装体验
 
-Lindows 自有构建脚本、配置、打包元数据、品牌资源、文档和原创集成代码按 **GNU GPL-3.0-or-later** 发布，许可证全文见 [`LICENSE`](LICENSE)。本仓库是聚合发行项目，第三方组件不会因根目录许可证而被重新授权；完整的版权、固定提交、源码获取和独立许可证说明见 [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md)。其中，ElevenDE 云端仓库的自有代码已在提交 `a3b9c9ed17065cc2452678fd0cfe03deda33ab11` 正式切换为 GPL-3.0-or-later；Lindows 随附的上游许可证原文副本见 [`LICENSES/GPL-3.0-ElevenDE.txt`](LICENSES/GPL-3.0-ElevenDE.txt)，其内容与 ElevenDE 当前 `main` 的 LICENSE 校验一致，并在 `80d833958ad84f27b2890160a31d1443fe3c5ba6` 记录 runbox-linux；SAS-for-Linux 与 Explorer-for-Linux 上游已在 2026-08-19 添加 MIT License；SAS 的版权声明为 Copyright (c) 2026 macOS-Terminal，Explorer 同理。ElevenDE 内嵌的 Explorer 不是未经修改的上游副本：其目录与上游同名，但 ElevenDE 已对核心源文件、构建元数据和集成方式进行了重大修改，属于独立维护的衍生/重构代码。原始 Explorer 部分保留 MIT 条款，ElevenDE 对其修改和集成部分按 GPL-3.0-or-later 发布；Lindows 自有补丁仍按本项目 GPL-3.0-or-later 处理。 |
+| 范围 | Lindows 2.0 实现 |
+| --- | --- |
+| **核心桌面** | ElevenDE 3.5.1、Openbox、picom、Xorg、NetworkManager 与 Fcitx5 中文输入。ElevenDE 负责开始菜单、任务栏、窗口标题栏、窗口操作和其自身的 Win11 风格登录/锁屏界面。 |
+| **LiveCD** | `lindows-elevende-display.service` 使用 Xorg/xinit 直接启动一次性的 `user` 桌面会话。Live 用户不需要、也不公开密码；该临时用户只由系统服务通过 `runuser` 启动。 |
+| **已安装系统** | Calamares 后安装步骤写入实际创建的用户至 `/etc/lindows/session-user`。同一个 ElevenDE 原生显示服务以该用户启动会话，ElevenDE 自己的 `elevende-lock --login` 显示并验证密码。**不使用 LightDM 或其 Greeter。** |
+| **安全边界** | Live 初始化不会设置 `user:live`、不会创建 `nopasswdlogin` 组，也不会更改安装时设置的密码。已安装系统保留用户密码并仅将用户加入 Debian `sudo` 组。 |
+| **安装器** | Calamares 使用 Lindows 标识、中文欢迎页和专属幻灯片；Live 桌面与开始菜单提供“安装 Lindows”。目标系统清理 Live 安装器入口、Live 初始化服务和临时用户策略。 |
+| **启动链路** | ISO 使用统一的 `boot=live config components splash` BIOS/UEFI 参数。ISOLINUX 运行模块来自同一 syslinux 包；EFI System Partition 由双启动重打包脚本注入。安装后 GRUB 主题仅在主题和壁纸均存在时启用，避免悬空主题路径报错。 |
 
-## 获取构建产物
+## ElevenDE Windows 11 图标与 UI 适配
 
-1. 打开仓库的 [Releases](https://github.com/SYSTEM-Intel-MIC/lindows/releases) 页面，下载最新预发布版本中的 `Lindows-1.0-amd64-livecd.iso` 和对应 SHA-256 文件。
-2. 在本机验证 ISO：
+Lindows 对每个集成组件提供明确的 ElevenDE 图标别名，而不是依赖 Linux 主题的随机回退。`packages/elevende/icon-map.tsv` 将大多数入口映射到用户指定的 [WindowsIcons](https://github.com/HaydenReeve/WindowsIcons) ICO 路径，并为注册表编辑器使用单独记录来源、由 `regedit_100.ico` 重绘的公开 Windows 11 图标资源；`scripts/import-lindows-win11-icons.py` 将**实际使用的 18 组**资产转换为 16–128px PNG 覆盖层。仓库保存被使用的确定性输出和来源说明，不镜像完整第三方图标库。完整资产边界见 [`packages/elevende/ASSET-SOURCES.md`](packages/elevende/ASSET-SOURCES.md)。
+
+构建时，`patch-elevende-lindows-component-icons.py` 向 ElevenDE 的窗口/应用解析表注入命令与窗口类别名，`patch-elevende-icon-overlay-staging.py` 确保上游图标生成步骤后重新放入覆盖资源。因此桌面、开始菜单、任务栏和 ElevenDE 绘制的窗口标题栏都解析同一 Windows 11 图标。最终 ISO 验证会检查全部 18 个 64px 图标存在，并拒绝残留的关机、重启、注销、睡眠或锁屏桌面入口。
+
+第三方入口统一经由 `/usr/local/libexec/lindows-component-launch` 运行。该适配器设置 ElevenDE/X11 会话变量、关闭 GTK 客户端标题栏并使用统一图标搜索路径；`/usr/share/themes/ElevenDE/gtk-3.0/gtk.css` 为 GTK 的按钮、输入框、列表、进度条和焦点状态提供浅色、圆角和蓝色强调。Qt/GTK/Tk 应用仍保留各自上游业务界面，但窗口外框、标题栏、启动入口、图标和基本控件行为遵循 ElevenDE 环境。
+
+## 集成组件、上游与 Lindows 修改
+
+下表是 Lindows 2.0 的完整第三方组件声明。实际 URL 与不可变提交位于 `packages/sources.lock.tsv`；Copilot 和 PeaZip 的发布 DEB 与 SHA-256 位于 `packages/binaries.lock.tsv`。其中“入口/图标”均表示经过 ElevenDE 启动适配与 Windows 11 图标映射。
+
+| 组件 | 上游 | Lindows 包与技术实现 | 入口/图标与安全边界 |
+| --- | --- | --- | --- |
+| **ElevenDE 3.5.1** | [SYSTEM-Intel-MIC/ElevenDE](https://github.com/SYSTEM-Intel-MIC/ElevenDE) | 固定 `b4b97ca`；构建副本应用桌面启动、显示重排、图标解析、图标覆盖和会话策略补丁。 | 核心 Shell；Live 绕过登录，安装系统使用其原生登录界面。 |
+| Linux PC Manager | [SYSTEM-Intel-MIC/LinuxPCManager](https://github.com/SYSTEM-Intel-MIC/LinuxPCManager) | Python 源码打包为 `linux-pcmanager`。 | `linux-pcmanager` / 控制面板图标。 |
+| Registry Editor | [heyManNice/regedit](https://github.com/heyManNice/regedit) | Meson/C 构建为 `linux-regedit`，并提供 `regedit` 命令别名。 | `linux-regedit` / Windows 键图标。 |
+| Blue Screen Demo | [heyManNice/bsod](https://github.com/heyManNice/bsod) | Meson/C 构建为 `lindows-bsod`。 | 经 `--restore` 包装器启动，演示结束恢复桌面，**不重启**。 |
+| Device Manager | [daimile2/Device-Manager-But-Linux](https://github.com/daimile2/Device-Manager-But-Linux) | Go 构建；上游缺少 `go.sum`，Lindows 使用 `vendor/lindows-device-manager.go.sum` 并强制 `-mod=readonly`。 | `devmgr` / 设备图标。 |
+| **Lindows Store** | [SYSTEM-Intel-MIC/linux-store](https://github.com/SYSTEM-Intel-MIC/linux-store) | 锁定源码打包为 `lindows-store`；沿用 APT 与 polkit 的软件安装模型。 | `lindows-store` / Microsoft Store 风格图标。 |
+| Copilot for Linux | [com-in/Copilot-For-Linux](https://github.com/com-in/Copilot-For-Linux) | 仅获取 SHA-256 校验的 v1.0.0 AMD64 发布 DEB；Live 环境使用受控 Electron 沙箱兼容包装器。 | `lindows-copilot` / package 图标；不包含 API 密钥。 |
+| PeaZip | [PeaZip](https://github.com/peazip/PeaZip) | 仅获取 SHA-256 校验的 11.2.0 Qt6 AMD64 发布 DEB。 | `peazip` / ZIP 文件夹图标。 |
+| **Microsoft Edge** | [Microsoft Edge for Linux](https://packages.microsoft.com/repos/edge/) | 使用 `packages/binaries.lock.tsv` 中固定版本、URL 和 SHA-256 的官方 amd64 DEB；不在 Live 构建中查询漂移的 latest。 | `microsoft-edge` 官方包图标；桌面提供 Microsoft Edge 快捷方式。该专有二进制不重新许可为 GPL。 |
+| Activate Lindows | [MrGlockenspiel/activate-linux](https://github.com/MrGlockenspiel/activate-linux) | C 源码构建为激活水印视觉组件。 | `lindows-activation-watermark` / package 图标；不改变许可或系统激活状态。 |
+| Troubleshooting | [BobbyChengCN0518/Lindows-Troubleshooting](https://github.com/BobbyChengCN0518/Lindows-Troubleshooting) | PySide6 导入适配为 Debian 可用的 PyQt5 绑定。 | `lindows-troubleshooting` / 信息图标。 |
+| UAC Preview | [WenAnrong/Linux_uac](https://github.com/WenAnrong/Linux_uac) | 仅构建 UI；打包期补丁强制 `--timeout 0`。 | `lindows-uac-preview` / 安全图标；**不安装 PAM 模块、不修改 sudo、不自动批准操作**。 |
+| Lindows Defender | [xusk1234/LinuxDefender](https://github.com/xusk1234/LinuxDefender) | Python/Tk 入口打包。 | `lindows-defender` / Defender 图标。 |
+| Sticky Keys | [xusk1234/Linux-Sticky-keys](https://github.com/xusk1234/Linux-Sticky-keys) | Python 入口打包，并由 Lindows 覆盖错误的上游桌面 Exec。 | `lindows-sticky-keys` / Sticky Notes 图标。 |
+| Windows Widgets | [phillin-liu/WindowsWidget-for-Linux](https://github.com/phillin-liu/WindowsWidget-for-Linux) | Python/PyQt5 包装。 | `lindows-widgets` / Widgets 图标。 |
+| Windows Commands | [HelloAIXIAOJI/windowshit](https://github.com/HelloAIXIAOJI/windowshit) | Rust 1.95 构建；所有命令以 `lindows-*` 命名空间暴露，避免覆盖 Linux 命令。 | `lindows-windowshit` / Terminal 图标；电源命令仍受权限控制。 |
+| WinSAT | [WhatDamon/WinSAT](https://github.com/WhatDamon/WinSAT) | Python 模块打包。 | `winsat` / 芯片图标。 |
+| Windows Update Preview | [WenAnrong/windows_update_in_linux](https://github.com/WenAnrong/windows_update_in_linux) | CMake 构建；Lindows 包装器恢复上游 TTY/DRM 预览并固定 `--no-reboot`。 | `lindows-update-preview` / 刷新图标；不运行 `apt upgrade`、不重启。 |
+| About Lindows | [DeepslateQAQ/linux-winver](https://github.com/DeepslateQAQ/linux-winver) | GTK4/C 构建。 | `winver` / 系统版本图标。 |
+| Feedback Hub | [com-in/FeedbackHub-For-Linux](https://github.com/com-in/FeedbackHub-For-Linux) | Python/GTK 包装。 | `feedbackhub` / Feedback 图标。 |
+| mmclinux | `windowsuninstaller/mmclinux` | 用户提供的公开地址在审计时无法确认，未进入来源锁、构建、ISO 或菜单。 | **未集成。** 提供可审计来源与许可后才可能评估。 |
+
+## 构建、验证与发布
+
+本地完整回归要求 Debian/Ubuntu 主机具备 Docker、`live-build`、`xorriso`、`qemu-system-x86_64`、OVMF 与 `sudo`。核心 recipe 在 `golang:1.24-bookworm` 容器中构建；含 Rust 依赖的附加组件在 `rust:1.95-bookworm` 容器中构建。
 
 ```sh
-sha256sum -c Lindows-1.0-amd64-livecd.iso.sha256
-```
-
-3. 将 ISO 写入 USB 后启动 LiveCD。BIOS 与 UEFI 启动菜单均显示 Lindows 名称；进入桌面后点击“安装 Lindows”即可启动图形化安装器。
-4. 每次 `main` 分支构建成功后，工作流会同步保留 Actions Artifact；若 Release 暂不可用，可下载 `Lindows-1.0-amd64-livecd-with-installer-*` Artifact 作为备用。
-
-## 默认 Live 会话
-
-LiveCD 默认使用 LightDM 自动进入 ElevenDE，并显示 Lindows 原创深蓝壁纸。Fcitx5 会随桌面启动，输入法环境同时适用于 GTK、Qt 和传统 Xlib 程序。首次运行时可以在 Fcitx5 配置中调整输入法、切换键和候选词行为。
-
-## 本地构建
-
-推荐在支持 Docker 的 Linux 主机上执行与 GitHub Actions 相同的构建步骤。构建会下载 Debian 软件包、固定提交的组件源码和固定版本 PeaZip 发布包，因此需要稳定网络，并会占用较多磁盘空间。
-
-```sh
-git clone https://github.com/SYSTEM-Intel-MIC/lindows.git lindows
+git clone https://github.com/SYSTEM-Intel-MIC/Lindows.git lindows
 cd lindows
-
-# 从云端 ElevenDE 固定提交，以及其他固定上游提交生成本地 DEB。
-docker run --rm -v "$PWD:/workspace" -w /workspace \
-  golang:1.24-bookworm bash ./scripts/build-lindows-components.sh
-
-# 将本地包放入 live-build chroot 并构建 ISO。
-sudo mkdir -p config/includes.chroot/opt/lindows/packages
-sudo cp artifacts/packages/*.deb artifacts/packages/SHA256SUMS \
-  config/includes.chroot/opt/lindows/packages/
-sudo apt-get update
-sudo apt-get install -y live-build debootstrap squashfs-tools xorriso grub-pc-bin grub-efi-amd64-bin mtools dosfstools
-sudo lb config --distribution bookworm --architectures amd64 --binary-images iso-hybrid --debian-installer live
-sudo lb build
+git switch lindows-2.0-integration
+bash scripts/local-test.sh
 ```
 
-## 许可证与第三方声明
+构建顺序为：来源锁与缓存 → 核心/附加 DEB → SHA-256 与包元数据校验 → 构建清单 → Live staging → Bookworm ISO → BIOS/UEFI 重打包 → squashfs 内容校验 → QEMU BIOS/UEFI 冒烟。`scripts/validate-lindows-live-image.sh` 必须确认 Calamares 后安装模块、最小 Live sudoers、无 LightDM、原生 ElevenDE 服务、18 个图标别名、受限 polkit 调度器、无系统命令桌面入口、Lindows Store 和关键组件入口均在最终 squashfs 中。
 
-本项目的 GPL 许可仅适用于 Lindows 自有代码和已明确按 GPL 发布的组件。MIT、LGPL-3.0 以及许可证尚未明确的上游组件必须保留各自来源与许可边界；不得把聚合 ISO 或 DEB 中的全部文件笼统宣传为 GPL。详见 [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) 与 [`docs/license-audit-notes.md`](docs/license-audit-notes.md)。
+GitHub Actions 在开发分支上传 ISO、ISO SHA-256、启动报告、构建日志、组件包集和 manifest 作为 Artifacts。工作流仅在 `main` 条件满足时创建 GitHub Release；当前开发分支**绝不发布正式 Release**。
 
-## 安全说明
+## 许可证与安全边界
 
-Lindows 不会自动执行系统清理、设备驱动卸载/更新或蓝屏演示。Copilot 不包含任何预置 API 密钥，用户必须自行配置服务地址和凭据。电脑管家、设备管理器、注册表编辑器和蓝屏演示工具均要求用户显式启动；涉及系统权限的操作应通过图形化授权边界执行。蓝屏演示桌面入口强制携带 `--restore` 参数：动画结束后恢复原图形桌面并退出，**不会重启系统**；它不被注册为守护进程，也不会根据日志自动触发。
+Lindows 自有集成代码、构建 recipe、补丁、配置、品牌资源和文档按 **GPL-3.0-or-later** 发布，全文见 [`LICENSE`](LICENSE)。根目录 GPL 不会重新授权 MIT、LGPL、WTFPL、Debian 软件包、二进制发布包或未明确许可的上游代码。逐组件来源、固定提交、许可证文本和分发状态见 [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md)。
+
+ElevenDE 自有代码按 GPL-3.0-or-later 发布；其 SAS-for-Linux、Explorer-for-Linux 和 runbox-linux 来源仍保留各自边界。Explorer 在 ElevenDE 内经过大幅修改和重构，因此原始上游部分与 ElevenDE 的 GPL 增量必须被区分。[1]
+
+Lindows 不自动执行系统清理、驱动卸载、驱动下载、系统任务创建、系统升级、UAC/PAM 改写或重启。蓝屏演示固定恢复桌面；UAC 仅为视觉预览；Windows Update 为无破坏预览；Copilot 凭据必须由用户自行配置。
+
+蓝屏演示、Windows Update Preview 与 Start 电源操作通过 `/usr/local/libexec/lindows-privileged-action` 这个固定功能调度器请求单一的 polkit 动作。调度器只接受 `bsod`、`update-preview`、`suspend`、`poweroff`、`reboot` 五个无参数动作；其中演示分支在调度器内部硬编码 `--restore` 或 `--no-reboot`。Live 的 `user` 仅对这一个动作免密，安装系统则保留 active-user 的标准 `auth_self` 桌面认证提示；不存在通用 `pkexec`、任意命令或宽泛 sudo 绕过。
 
 ## 维护者
 
 **SYSTEM-Intel-MIC**
 
-- 项目主页：<https://github.com/SYSTEM-Intel-MIC/lindows>
-- Issue：<https://github.com/SYSTEM-Intel-MIC/lindows/issues>
+项目主页：<https://github.com/SYSTEM-Intel-MIC/Lindows>
+
+问题反馈：<https://github.com/SYSTEM-Intel-MIC/Lindows/issues>
+
+## 参考
+
+[1]: https://github.com/SYSTEM-Intel-MIC/ElevenDE "ElevenDE source and license boundary"
+
+## 第二轮体验修复补充
+
+在 `lindows-2.0-integration` 的后续集成中，Firefox ESR 已替换为固定版本的 Microsoft Edge for Linux amd64 DEB；其官方下载 URL、版本和 SHA-256 位于 `packages/binaries.lock.tsv`。Edge 是 Microsoft 专有二进制，不属于 Lindows GPL 源码。Lindows 还为 Edge、Lindows 终端和注册表编辑器提供桌面快捷方式，并继续使用锁定的 WindowsIcons 资源映射 Lindows 自有工具图标，不使用用户上传的低清截图作为图标。
+
+BlueScreen Demo 恢复调用上游真实 TTY/DRM 渲染器，但 Lindows 包装器固定使用 `--restore`，因此演示完成后回到桌面且不执行默认重启路径。分辨率补丁改为读取 X11 根窗口的实时几何属性，配合 ElevenDE 原生 RandR 事件和轮询，使任务栏、桌面图标和工作区跟随分辨率变化重新布局。

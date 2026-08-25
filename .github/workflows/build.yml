@@ -3,7 +3,7 @@ name: Build Lindows Live ISO
 
 on:
   push:
-    branches: [main]
+    branches: [main, lindows-2.0-integration]
   workflow_dispatch:
 
 permissions:
@@ -22,6 +22,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Restore locked component source cache
+        uses: actions/cache@v4
+        with:
+          path: artifacts/source-cache
+          key: lindows-component-sources-${{ runner.os }}-${{ hashFiles('packages/sources.lock.tsv') }}
+          restore-keys: |
+            lindows-component-sources-${{ runner.os }}-
 
       - name: Show host capacity
         run: |
@@ -46,37 +54,50 @@ jobs:
           sudo timeout 12m apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=60 update
           sudo timeout 12m apt-get install -y --no-install-recommends \
             live-build debootstrap debian-archive-keyring squashfs-tools xorriso grub-pc-bin \
-            grub-efi-amd64-bin isolinux syslinux syslinux-common syslinux-utils mtools dosfstools gpg cpio jq
+            grub-efi-amd64-bin isolinux syslinux syslinux-common syslinux-utils mtools dosfstools gpg cpio jq initramfs-tools-core socat qemu-system-x86 ovmf desktop-file-utils
           lb --version
           docker --version
 
-      - name: Build fixed Lindows component packages in Debian Bookworm
+      - name: Build fixed Lindows 2.0 component packages in Debian Bookworm
         run: |
           set -euxo pipefail
+          # ElevenDE and the original Go/C/Qt components use the fixed Go image.
           docker run --rm \
             --volume "$GITHUB_WORKSPACE:/workspace" \
             --workdir /workspace \
             golang:1.24-bookworm \
             bash ./scripts/build-lindows-components.sh
+          # The audited Rust desktop tools use a modern Cargo image.  Keeping
+          # this separate avoids silently downgrading their Cargo.lock format.
+          docker run --rm \
+            --volume "$GITHUB_WORKSPACE:/workspace" \
+            --workdir /workspace \
+            rust:1.95-bookworm \
+            bash ./scripts/build-lindows2-extra-components.sh
+          # Recipes run as root in their Debian containers; return the workspace
+          # artifacts to the runner user before writing manifests and cache data.
+          sudo chown -R "$USER:$USER" artifacts
+          ( cd artifacts/packages && sha256sum *.deb > SHA256SUMS )
+          python3 scripts/write-lindows-build-manifest.py
           test -f artifacts/packages/elevende_3.5.1_amd64.deb
-          test -f artifacts/packages/copilot-for-linux_1.0.0_amd64.deb
+          test -f artifacts/packages/lindows-store_2.3.0+lindows2_amd64.deb
+          test -f artifacts/packages/feedbackhub_1.0.0+lindows2_amd64.deb
           test -f artifacts/packages/SHA256SUMS
           ( cd artifacts/packages && sha256sum -c SHA256SUMS )
+          bash scripts/validate-lindows-component-packages.sh
 
-      - name: Stage local packages for the live chroot
+      - name: Stage verified Lindows 2.0 packages and hooks
         run: |
           set -euxo pipefail
-          sudo rm -rf config/includes.chroot/opt/lindows/packages
-          sudo mkdir -p config/includes.chroot/opt/lindows/packages
-          sudo cp artifacts/packages/*.deb artifacts/packages/SHA256SUMS \
-            config/includes.chroot/opt/lindows/packages/
-          sudo chown -R root:root config/includes.chroot/opt/lindows/packages
+          sudo ROOT="$GITHUB_WORKSPACE" PKGS="$GITHUB_WORKSPACE/artifacts/packages" \
+            bash scripts/stage-lindows-live-inputs.sh
           ls -lh config/includes.chroot/opt/lindows/packages
+          find config/hooks -maxdepth 1 -name '*.chroot' -type f -printf '%f\n' | sort
 
       - name: Configure Lindows live-build image
         run: |
           set -euxo pipefail
-          sudo rm -rf lb .build stage cache auto *.iso build.log 2>/dev/null || true
+          sudo rm -rf lb .build stage cache auto chroot binary binary.tmp *.iso build.log 2>/dev/null || true
           sudo lb config \
             --ignore-system-defaults \
             --mode debian \
@@ -100,15 +121,18 @@ jobs:
             --mirror-debian-installer "http://deb.debian.org/debian" \
             --keyring-packages "debian-archive-keyring" \
             --binary-images iso-hybrid \
-            --bootappend-live "boot=live components splash" \
+            --compression gzip \
+            --bootappend-live "components splash" \
             --iso-application "Lindows Live" \
             --iso-publisher "SYSTEM-Intel-MIC" \
-            --iso-volume "Lindows 1.0" \
+            --iso-volume "Lindows 2.0" \
             --source false \
             --zsync false \
             --firmware-chroot false \
             --apt-recommends false \
             --debian-installer false
+
+          sudo bash scripts/prepare-lindows-live-build-compression.sh
 
           sudo mkdir -p config/archives
           cat <<'EOF' | sudo tee config/archives/lindows.list.chroot
@@ -120,18 +144,14 @@ jobs:
           deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
           deb http://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
           EOF
-          # live-build 3.x executes local chroot hooks from config/hooks/*.chroot.
-          # The repository keeps numbered sources under config/hooks/normal, so
-          # stage them into the actual execution directory before lb build.
-          sudo mkdir -p config/hooks
-          for hook in config/hooks/normal/*.hook.chroot; do
-            target="config/hooks/$(basename "$hook" .hook.chroot).chroot"
-            sudo cp -f "$hook" "$target"
-          done
           sudo chmod 755 config/hooks/*.chroot \
             config/includes.chroot/usr/local/bin/lindows-installer \
+            config/includes.chroot/usr/local/bin/lindows-power-action \
+            config/includes.chroot/usr/local/bin/lindows-logout \
             config/includes.chroot/usr/local/sbin/lindows-live-session-init \
-            config/includes.chroot/usr/local/sbin/lindows-lightdm
+            config/includes.chroot/usr/local/sbin/lindows-elevende-display \
+            config/includes.chroot/usr/local/libexec/lindows-component-launch \
+            config/includes.chroot/usr/local/libexec/lindows-privileged-action
           # Keep isolinux.bin and every COM32 runtime module from the same
           # syslinux package. In particular, isolinux.cfg -> vesamenu.c32
           # requires ldlinux.c32, libcom32.c32 and libutil.c32 at boot time.
@@ -150,49 +170,13 @@ jobs:
           echo "Lindows build started: $(date --iso-8601=seconds)" | tee build.log
           sudo lb build 2>&1 | tee -a build.log
 
-          # live-build's Debian Bookworm syslinux mode creates the BIOS image
-          # but does not add an EFI System Partition. Repack the same binary/
-          # tree with a standalone GRUB x86_64 EFI executable so the ISO boots
-          # on both legacy BIOS and UEFI firmware.
+          # Use the same repack implementation locally and in CI. It retains the
+          # matching ISOLINUX tree and injects an x86_64 EFI System Partition.
           ISO_SOURCE="$(find . -maxdepth 2 -type f \( -name '*Lindows*.iso' -o -name '*.hybrid.iso' \) | head -n1)"
           test -n "$ISO_SOURCE"
-          EFI_WORK="$(mktemp -d)"
-          EFI_CFG="$EFI_WORK/grub.cfg"
-          EFI_BIN="$EFI_WORK/BOOTX64.EFI"
-          EFI_IMG="$EFI_WORK/efi.img"
-          cat > "$EFI_CFG" <<'EOF'
-          set timeout=12
-          set default=0
-          insmod iso9660
-          insmod search
-          insmod linux
-          insmod normal
-          search --no-floppy --file --set=root /live/vmlinuz
-          menuentry "Start Lindows Live" {
-            linux /live/vmlinuz boot=live components splash
-            initrd /live/initrd.img
-          }
-          menuentry "Lindows Live (safe graphics)" {
-            linux /live/vmlinuz boot=live components splash nomodeset
-            initrd /live/initrd.img
-          }
-          EOF
-          grub-mkstandalone -O x86_64-efi -o "$EFI_BIN" \
-            --modules="iso9660 search linux normal" \
-            "boot/grub/grub.cfg=$EFI_CFG"
-          truncate -s 16M "$EFI_IMG"
-          sudo mkfs.vfat -F 16 "$EFI_IMG"
-          mmd -i "$EFI_IMG" ::/EFI ::/EFI/BOOT
-          mcopy -i "$EFI_IMG" "$EFI_BIN" ::/EFI/BOOT/BOOTX64.EFI
-          REPACKED="${ISO_SOURCE}.dualboot"
-          sudo xorriso -as mkisofs -r -J -V "LINDOWS 1.0" \
-            -o "$REPACKED" \
-            -b isolinux/isolinux.bin -c isolinux/boot.cat \
-            -no-emul-boot -boot-load-size 4 -boot-info-table \
-            -eltorito-alt-boot -e efi.img -no-emul-boot \
-            -isohybrid-gpt-basdat binary "$EFI_IMG" 2>&1 | tee -a build.log
-          mv "$REPACKED" "$ISO_SOURCE"
-          rm -rf "$EFI_WORK"
+          chmod 755 scripts/repack-lindows-dualboot-iso.sh
+          LINDOWS_BINARY_TREE="$GITHUB_WORKSPACE/binary" \
+            bash scripts/repack-lindows-dualboot-iso.sh "$ISO_SOURCE" 2>&1 | tee -a build.log
           echo "Lindows dual BIOS/UEFI ISO finished: $(date --iso-8601=seconds)" | tee -a build.log
 
       - name: Verify Lindows ISO
@@ -202,7 +186,7 @@ jobs:
           ISO_SOURCE="$(find . -maxdepth 2 -type f \( -name '*Lindows*.iso' -o -name '*.hybrid.iso' \) | head -n1)"
           test -n "$ISO_SOURCE"
           test -s "$ISO_SOURCE"
-          ISO="Lindows-1.0-amd64-livecd.iso"
+          ISO="Lindows-2.0-amd64-livecd.iso"
           mv "$ISO_SOURCE" "$ISO"
           test -s "$ISO"
           echo "iso_path=$ISO" >> "$GITHUB_OUTPUT"
@@ -228,36 +212,61 @@ jobs:
           grep -q '/usr/local/share/elevende-shell/icons/64x64/apps/lindows-installer.svg$' "$ROOT_CHECK/squashfs.list"
           rm -rf "$BOOT_CHECK" "$ROOT_CHECK"
           grep -q -E 'El Torito boot img.*BIOS|El Torito boot img.*UEFI|EFI|efi.img|isolinux' iso-boot-report.txt
-          sha256sum "$ISO" | tee Lindows-1.0-amd64-livecd.iso.sha256
-          cat > Lindows-1.0-release-notes.md <<EOF
-          # Lindows 1.0 — LiveCD with installer
+          chmod 755 scripts/validate-lindows-live-image.sh
+          sudo bash scripts/validate-lindows-live-image.sh "$ISO"
+          sha256sum "$ISO" | tee Lindows-2.0-amd64-livecd.iso.sha256
+          cat > Lindows-2.0-release-notes.md <<EOF
+          # Lindows 2.0 Preview — LiveCD with installer
 
           Build: ${GITHUB_RUN_NUMBER}
           Commit: ${GITHUB_SHA}
 
           This hybrid ISO includes the ElevenDE desktop, Lindows boot and installer branding,
-          Chinese Fcitx5 input support, Firefox ESR, VLC, Image Viewer, PeaZip, and the
-          bundled Windows-style system tools.
+          Chinese Fcitx5 input support, Firefox ESR, VLC, Image Viewer, PeaZip, Lindows Store,
+          and Windows-style system tools built from the locked package layer.
 
           Verify the ISO before writing it to USB:
 
           \`\`\`sh
-          sha256sum -c Lindows-1.0-amd64-livecd.iso.sha256
+          sha256sum -c Lindows-2.0-amd64-livecd.iso.sha256
           \`\`\`
           EOF
-          ls -lh "$ISO" Lindows-1.0-amd64-livecd.iso.sha256 Lindows-1.0-release-notes.md build.log
+          ls -lh "$ISO" Lindows-2.0-amd64-livecd.iso.sha256 Lindows-2.0-release-notes.md build.log
+
+      - name: Smoke boot Lindows 2.0 ISO in QEMU BIOS and UEFI
+        run: |
+          set -euxo pipefail
+          chmod 755 scripts/qemu-boot-smoke.sh scripts/validate-lindows-live-image.sh
+          bash scripts/qemu-boot-smoke.sh "${{ steps.iso.outputs.iso_path }}" bios 170
+          bash scripts/qemu-boot-smoke.sh "${{ steps.iso.outputs.iso_path }}" uefi 170
+
+      - name: Upload QEMU visual diagnostics on completion or failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lindows-2.0-qemu-visual-diagnostics-${{ github.run_number }}
+          path: |
+            Lindows-2.0-amd64-livecd.iso.bios.ppm
+            Lindows-2.0-amd64-livecd.iso.uefi.ppm
+          if-no-files-found: warn
+          retention-days: 14
+          compression-level: 0
 
       - name: Upload Lindows ISO and verification artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Lindows-1.0-amd64-livecd-with-installer-${{ github.run_number }}
+          name: Lindows-2.0-amd64-livecd-with-installer-${{ github.run_number }}
           path: |
             ${{ steps.iso.outputs.iso_path }}
-            Lindows-1.0-amd64-livecd.iso.sha256
-            Lindows-1.0-release-notes.md
+            Lindows-2.0-amd64-livecd.iso.sha256
+            Lindows-2.0-release-notes.md
             build.log
             iso-boot-report.txt
+            Lindows-2.0-amd64-livecd.iso.bios.ppm
+            Lindows-2.0-amd64-livecd.iso.uefi.ppm
             artifacts/packages/SHA256SUMS
+            artifacts/packages/LINDOWS-2.0-BUILD-MANIFEST.json
+            artifacts/packages/LINDOWS-2.0-COMPONENTS.txt
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
@@ -265,27 +274,30 @@ jobs:
       - name: Upload component package set
         uses: actions/upload-artifact@v4
         with:
-          name: Lindows-1.0-component-packages-${{ github.run_number }}
+          name: Lindows-2.0-component-packages-${{ github.run_number }}
           path: artifacts/packages/
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
 
-      - name: Publish Lindows ISO to GitHub Releases
-        if: github.ref == 'refs/heads/main'
+      - name: Publish Lindows 2.0 Preview Release
+        # Preview releases are produced only after the ISO verifier and both
+        # BIOS/UEFI QEMU smoke checks succeed on the integration branch.
+        if: github.ref == 'refs/heads/lindows-2.0-integration' && success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: lindows-1.0-build-${{ github.run_number }}
-          name: Lindows 1.0 Build ${{ github.run_number }}
-          body_path: Lindows-1.0-release-notes.md
+          tag_name: lindows-2.0-preview-${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          name: Lindows 2.0 Preview Build ${{ github.run_number }}
+          body_path: Lindows-2.0-release-notes.md
           prerelease: true
           files: |
             ${{ steps.iso.outputs.iso_path }}
-            Lindows-1.0-amd64-livecd.iso.sha256
-            Lindows-1.0-release-notes.md
+            Lindows-2.0-amd64-livecd.iso.sha256
+            Lindows-2.0-release-notes.md
 
       - name: Cleanup runner disk
         if: always()
         run: |
-          sudo rm -rf lb .build stage cache artifacts/work 2>/dev/null || true
+          sudo rm -rf lb .build stage cache chroot binary binary.tmp artifacts/work 2>/dev/null || true
           df -h /

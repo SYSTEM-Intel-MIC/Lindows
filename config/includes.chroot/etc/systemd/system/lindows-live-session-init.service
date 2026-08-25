@@ -1,6 +1,6 @@
 [Unit]
 Description=Initialize the Lindows Live graphical session user
-Before=lightdm.service display-manager.service
+Before=lindows-elevende-display.service
 After=local-fs.target systemd-tmpfiles-setup.service
 Wants=local-fs.target
 

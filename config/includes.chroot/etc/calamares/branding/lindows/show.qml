@@ -26,7 +26,7 @@ Presentation {
     }
 
     Slide {
-        centeredText: qsTr("欢迎安装 Lindows 1.0\n轻量、熟悉、面向桌面的 Debian Linux")
+        centeredText: qsTr("欢迎安装 Lindows 2.0\n熟悉的 Windows 风格桌面体验，基于 Debian 构建")
     }
 
     Slide {

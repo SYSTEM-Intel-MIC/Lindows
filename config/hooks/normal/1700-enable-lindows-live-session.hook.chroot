@@ -1,35 +1,29 @@
 #!/bin/sh
 set -eu
 
-# live-config may not create its usual `user` account when the image is
-# assembled with the Debian Bookworm SysV init path. LightDM is configured to
-# autologin this account, so make that contract explicit in the image.
-if ! id user >/dev/null 2>&1; then
-    useradd --create-home --shell /bin/bash --user-group user
-fi
-passwd --delete user >/dev/null 2>&1 || true
-for group in audio video plugdev netdev render input; do
-    if getent group "$group" >/dev/null 2>&1; then
-        usermod --append --groups "$group" user
-    fi
-done
+# The disposable Live user is created only at boot by
+# lindows-live-session-init.service. Do not bake it into /etc/passwd and do not
+# give it a password: the native ElevenDE display service starts it directly.
+install -d -m 0755 /etc/lindows
+printf '%s\n' user > /etc/lindows/session-user
 
-# Give the Live account the same default ElevenDE configuration as an installed
-# account, including the Lindows wallpaper and input method environment.
-if [ -d /etc/skel ]; then
-    cp -a /etc/skel/. /home/user/ 2>/dev/null || true
-fi
-chown -R user:user /home/user
-# ElevenDE treats non-executable .desktop files as documents; keep the Live
-# installer shortcut executable after skeleton copying and ownership changes.
-chmod 0755 '/home/user/Desktop/Install Lindows.desktop' 2>/dev/null || true
-
-# The image currently uses SysV init, so explicitly register LightDM in the
-# default runlevel. The systemd command is harmless when systemd is present and
-# is retained for installed targets using the same filesystem.
-if [ -x /etc/init.d/lightdm ]; then
-    update-rc.d lightdm defaults >/dev/null 2>&1 || true
-fi
+# ElevenDE owns the only graphical session path. The two services are enabled
+# explicitly because live-build does not always preserve preset state. LightDM
+# must not be present or reintroduced as a competing greeter.
 if command -v systemctl >/dev/null 2>&1; then
-    systemctl enable lightdm.service >/dev/null 2>&1 || true
+    systemctl disable lightdm.service >/dev/null 2>&1 || true
+    systemctl enable lindows-live-session-init.service >/dev/null 2>&1 || true
+    systemctl enable lindows-elevende-display.service >/dev/null 2>&1 || true
+fi
+
+# live-build can install the generic live-config systemd backend independently
+# of the explicit package list. Its oneshot service runs Before=basic.target,
+# yet Lindows initializes its Live user and graphical session through the two
+# native services above. Mask it in the finished Live root so it cannot block
+# the graphical target during DHCP, locale or generic profile processing.
+install -d -m 0755 /etc/systemd/system
+ln -sfn /dev/null /etc/systemd/system/live-config.service
+if [ -e /etc/init.d/lightdm ] || [ -e /usr/sbin/lightdm ]; then
+    echo 'Lindows: LightDM is not permitted; use lindows-elevende-display.service' >&2
+    exit 1
 fi

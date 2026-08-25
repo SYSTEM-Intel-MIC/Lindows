@@ -1,25 +1,16 @@
 #!/bin/sh
+# Prepare only the disposable Live user. The ElevenDE native display service
+# owns Xorg/session startup; this script never invokes a display manager.
 set -eu
 
-# This helper is LiveCD-only. On an installed system it must never create or
-# modify an account, especially its password.
 [ -d /run/live ] || exit 0
-
-# The live-config user-setup profile is not guaranteed to run before LightDM
-# when the image is assembled with a custom systemd/live-config combination.
-# Create the account at boot, immediately before the display manager starts.
 if ! id user >/dev/null 2>&1; then
     useradd --create-home --shell /bin/bash --user-group user
 fi
-# Use an explicit, documented Live-session password. Unlocking the
-# account avoids PAM rejecting the blank-password form on LightDM.
-printf '%s\n' 'user:live' | chpasswd
-passwd --unlock user >/dev/null 2>&1 || true
-# Debian's LightDM PAM stack commonly uses this group for autologin.
-if ! getent group nopasswdlogin >/dev/null 2>&1; then
-    groupadd --system nopasswdlogin
-fi
-usermod --append --groups nopasswdlogin user
+# The Live user is not an interactive Linux login account. The graphical Live
+# session is started by root through runuser, so no documented password, PAM
+# autologin group or LightDM policy is required.
+passwd --lock user >/dev/null 2>&1 || true
 for group in audio video plugdev netdev render input; do
     if getent group "$group" >/dev/null 2>&1; then
         usermod --append --groups "$group" user
@@ -28,4 +19,10 @@ done
 if [ -d /etc/skel ]; then
     cp -a /etc/skel/. /home/user/ 2>/dev/null || true
 fi
+# Widgets are started exactly once from /etc/xdg/autostart.  Old releases may
+# have left an upstream user-level copy that starts a second process and makes
+# its edge hot zone repeatedly open during resolution changes.
+rm -f /home/user/.config/autostart/widget-panel.desktop
+install -d -m 0755 /etc/lindows
+printf '%s\n' user > /etc/lindows/session-user
 chown -R user:user /home/user

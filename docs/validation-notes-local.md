@@ -1,0 +1,90 @@
+# Lindows 2.0 本地验证记录
+
+## 2026-08-22：ISO 完整性回归与新增门控
+
+本地早期 XZ SquashFS ISO 曾通过目录列表和有限 QEMU 存活检查，但实际图形虚拟机中出现以下读取错误：
+
+```text
+SQUASHFS error: xz decompression failed, data probably corrupt
+SQUASHFS error: Failed to read block ... -5
+```
+
+这证明仅检查 ISO 内文件名或 QEMU 进程仍在运行不足以证明 Live 系统可用。Lindows 已将 `scripts/validate-lindows-live-image.sh` 改为先完整 `unsquashfs` 解压最终 `/live/filesystem.squashfs`，再检查 Calamares、原生 ElevenDE 服务、无 LightDM、组件适配器、Lindows Store 和 20 个图标别名。旧 XZ 映像因此不再可能被误判为有效产物。
+
+随后一次使用 gzip SquashFS 的本地重建已通过完整 SquashFS 展开，但图形虚拟机在选择默认 Live 启动项后于早期启动阶段报出：
+
+```text
+Kernel panic - not syncing: No working init found.
+```
+
+对该 ISO 的 `/live/initrd.img` 运行 `lsinitramfs` 得到 `cpio: premature end of archive`，证明该 initrd 同样损坏或截断。因此该 gzip ISO 也**不是**可交付成果；它不能用作 ElevenDE Live 桌面、组件或 Calamares 的通过证据。
+
+为防止再次发生同类漏检，最终 ISO 验证现已同时抽取并完整枚举 `/live/initrd.img`，且要求其中存在顶层 `init`。BIOS/UEFI 冒烟脚本也已改为通过 QEMU monitor 主动按下默认 Live 启动项、保存启动后的帧，避免把静止的启动菜单误报为成功。
+
+下一项验证将在 GitHub Actions 的干净托管构建器中从锁定 package layer 重新生成 ISO，并由新的完整 SquashFS 与 initrd 门控先行验证。只有下载该可信 ISO 回本地虚拟机，确认 Live 免登录进入 ElevenDE、组件入口与 Calamares 安装路径后，才可以把 Lindows 2.0 视为本地回归通过。当前状态：**仍在验证，不可交付。**
+
+## 2026-08-24：CI 构建与视觉门控
+
+GitHub Actions 运行 `32686179382`（提交 `023b6b9`，分支 `lindows-2.0-integration`）已完成并以 `success` 结束。该运行的唯一构建作业 `Build Lindows LiveCD and installer image` 也已成功完成；构建器发布了 LiveCD/安装器映像、组件包和 QEMU 视觉诊断工件。
+
+视觉诊断工件 `Lindows-2.0-qemu-visual-diagnostics-217` 同时包含 BIOS 与 UEFI 的 1280×800 帧。两帧均显示真实的 ElevenDE 浅色桌面、任务栏和原生浅色壁纸，不是黑屏或均匀灰屏；桌面上可见“此电脑”“主目录”“Registry Editor”“Microsoft Edge”“Lindows Terminal”和“Install Lindows”入口。该结果证明 BIOS/UEFI 图形启动门控通过，并确认 Edge、注册表编辑器、终端和安装器桌面快捷方式已被渲染出来。
+
+这组截图**不等同于完整交互回归**。由于当前主机的 EXT4 文件系统错误仍使大文件下载和本地虚拟机结果不可信，本轮没有把约 1.7 GB 的 LiveCD 工件下载到本机，也没有虚构 Calamares 真正落盘安装、安装后原生登录、Edge/BSOD/Task Scheduler/WinSAT/Store/Control Panel 的交互结果。因此当前状态更新为：**CI 构建与 BIOS/UEFI 视觉验证通过；健康环境中的安装和应用交互回归仍待完成，不宣称完整交付通过。**
+
+## 2026-08-24：启动滚屏、设备管理器浅色主题与 sudo/UAC 修复
+
+提交 `ca2b77e` 已推送到 `lindows-2.0-integration`，GitHub Actions 运行 `32696164185` 成功完成。BIOS 与 UEFI 视觉诊断帧均显示真实 ElevenDE 桌面、浅色壁纸、中文桌面入口和 Microsoft Edge 官方图标；没有出现黑屏或均匀灰屏。新的启动参数已从正常 BIOS/UEFI Live 项中移除 `splash`，保留安全图形项的 `nomodeset`，因此内核/systemd 启动过程可恢复可见滚屏；诊断帧只证明最终图形桌面可达，不能替代启动过程录像或串口日志验证。
+
+设备管理器在 Lindows 构建副本中将 Fyne 主题颜色固定到 `theme.VariantLight`，并继续通过统一组件适配器使用浅色 GTK/Qt 环境。sudo/UAC 采用不修改系统 `/usr/bin/sudo`、PAM 或 sudoers 的安全方案：交互终端的 `sudo` 别名调用 `lindows-sudo`，先执行原生 `/usr/bin/sudo -v` 校验当前用户密码，再显示 UAC 确认；用户取消、关闭窗口或 UI 失败时不会执行目标命令，确认后才调用未修改的 `/usr/bin/sudo`。
+
+当前主机仍未完成健康 VM 的真实落盘安装、安装后登录、设备管理器手工打开验证和 sudo/UAC 鼠标交互回归，因此不把这些项目虚构为已通过。当前可确认结论为：**代码静态检查通过，CI 构建通过，BIOS/UEFI 最终图形桌面视觉门控通过；完整健康 VM 交互验证仍待执行。**
+
+## 2026-08-24：稳定性恢复与安装后动作路径重构
+
+提交 `df73c54` 与后续 CI 权限补充 `94d952d` 已推送到 `lindows-2.0-integration`。运行 `32730634610` 已以 `success` 完成；其包含组件 DEB 重建、成品 squashfs 完整性校验、最终 ISO 路径断言，以及 BIOS/UEFI QEMU 启动冒烟。开发分支未创建 Release。
+
+本轮继续移除了 Lindows Control Panel 和 Task Scheduler 的构建输入与入口。中文修复不再请求 Bookworm 中不存在的 `Noto Sans Mono CJK SC`，而使用镜像实际含有并经 Fontconfig 确认的 `Noto Sans CJK SC`；`zh_CN.UTF-8`、Fontconfig 与 Xresources 共同为开始菜单、SAS 和终端提供 CJK 回退。Start“所有应用”改为在最终安装钩子中物理删除系统关机、重启、注销、睡眠与锁屏 `.desktop` 文件，并由最终 squashfs 的负向断言复核。注册表编辑器不再使用错误的钥匙图标，改为独立记录来源、由 `regedit_100.ico` 重绘的 Windows 11 图标资源；设备管理器构建副本优先识别并显示 Lindows。
+
+严重的稳定性回归已从源头撤回：ElevenDE Shell 恢复为单一长生命周期进程，不再在 RandR 期间循环重建；显示服务从 `Restart=always` 改回 `Restart=on-failure`。SAS 注销改为专用 `lindows-logout` 在 Openbox 退出前写入标记，显示启动器仅对该标记执行同一 Xorg 内的新会话；无标记退出即使状态码为 0 也交给 systemd 失败恢复。Widgets 保持每个屏幕的边缘热区窗口，只在 geometryChanged 时原地重定位，避免销毁/新建热区导致静止鼠标反复触发中间 Widgets。
+
+BSOD、Windows Update Preview 和 Start 电源改为经由固定功能的 `lindows-privileged-action` 请求单一 polkit 动作。该调度器只允许 `bsod`、`update-preview`、`suspend`、`poweroff`、`reboot`；BSOD 硬编码 `--restore`，更新预览硬编码 `--no-reboot`，并且没有任意参数传递。Live 用户仅对此单一动作免密，安装系统保留 active-user `auth_self` 的可见认证提示，替代此前只在 Live 工作的宽泛 `pkexec` 例外和安装后裸 `loginctl` 无反馈路径。
+
+真实运行时结论仍受限：我下载运行 `32730512489` 的 ISO 工件时，ZIP 自检通过但解压后 ISO 的 SHA-256 与 CI 附带值不一致；随后宿主内核记录了 `vda` I/O 错误与 EXT4 错误。损坏 ISO 已被删除，未用于 QEMU 或安装验证。因此本轮只能确认最终 CI 构建、成品内容校验和 BIOS/UEFI 启动冒烟通过；**尚未宣称**分辨率热重排、Widgets 热区、SAS 注销/电源、安装后 BSOD/更新、Copilot 首次启动或 Calamares 落盘安装已在健康虚拟机中交互通过。
+
+## 2026-08-25：以实际复现故障为基线的第二次稳定性修复
+
+用户在实际运行环境中稳定复现：Start“所有程序”残留系统电源/会话命令且中文混乱；终端中文错乱；安装后 BSOD 和 Windows Update Preview 失效；Start 与 SAS 的关机/重启无响应、SAS 注销无效；分辨率变化后桌面循环刷新、Widgets 反复打开、任务栏图标变空白。此前的 CI 启动截图与 squashfs 检查不能证明这些交互路径。
+
+本次修复移除了显示启动器的会话内注销重启循环，并将 SAS 注销改为在同一 X 会话显示 ElevenDE 原生 `elevende-lock --login` 登录门，不再退出 Openbox 或重建 Shell。Widgets 不再在首启/设置保存时写入第二个 `~/.config/autostart/widget-panel.desktop`；系统级入口成为唯一进程来源，边缘热区绑定单个 QScreen、只原地重定位，并在分辨率变化将热区移动到静止鼠标下时解除触发，直到用户真正离开再进入边缘。
+
+菜单解析只读取 `Name[zh_CN]`/`Name[zh]`，不再把任意其他语言翻译误当中文；物理清理及解析过滤均加入 Bookworm 实际出现的 `lxqt-leave` 关机、重启、注销、锁屏、挂起入口。终端 Fontconfig 与 Xresources 改用经 `fc-match` 验证存在的 `Noto Sans Mono CJK SC`，而非比例 CJK 字体。SAS 底部电源菜单与 Start 共用受限 `lindows-power-action`；安装后 sudo 用户也获得该单一固定功能调度器的 `AUTH_SELF` polkit 认证路径。最终 ISO 校验器新增这些结构性断言。
+
+这些改动已经通过锁定源码夹具、语法、字体族、入口过滤与权限边界检查；仍需在健康虚拟机中执行用户操作级回归，尤其是安装后 BSOD/更新、SAS 认证、实际关机/重启、分辨率切换和 Widgets 边缘触发。因此本记录不将这些项目表述为已交互通过。
+
+## 2026-08-25：安装后灰屏与电源/会话二次复现修复
+
+最新实际复现表明，上一轮仍存在关机、重启与安装后 BSOD/更新演示无响应；SAS 的“注销”仅显示登录门而非结束会话；All Apps 仍残留 Picom、会话配置、安装系统及键盘布局查看器；终端入口错误指向命令兼容说明程序；分辨率保存后，下一次启动短暂显示桌面即变成灰色根窗口。
+
+本轮审计发现确定性灰屏根因：安装后 `/usr/local/bin/lindows-restore-display` 在 `xrandr` 后执行 `pkill -USR1 -x elevende-shell`，但锁定 ElevenDE Shell 仅忽略 `SIGHUP`、未注册 `SIGUSR1`；其默认信号动作是终止，因此 Openbox 保留而 Shell（桌面、任务栏和图标）消失，形成灰屏。该信号已经删除，最终 ISO 校验器也会拒绝它重新出现。
+
+注销调整为只有 SAS 显式选择时才创建 marker 并退出 Openbox；显示启动器只在该 marker 存在时复用现有 Xorg 拉起新会话与原生登录门，任何未标记退出仍交给失败恢复，不可作为分辨率刷新逻辑。固定权限调度器的电源分支改用 root 下的 `systemctl --no-wall`，并对仅有五个固定安全动作的调度器给予 Calamares 创建 sudo 用户的窄范围允许，以消除自定义显示服务中图形 polkit agent/active-seat 失配造成的安装后无响应。
+
+终端入口现直接启动黑底 XTerm，显式使用 `Noto Sans Mono CJK SC`；Picom、LXQt 会话配置、键盘布局查看器、Calamares/安装系统入口会在最终镜像层删除。用户可见的 Widgets、命令、体验指数和更新预览名称改为 Lindows（Microsoft Edge 名称依用户既有要求保留）。这些变更已完成源码夹具与脚本检查，但仍未在健康虚拟机中完成 Live 与安装后实际交互验收。
+
+## 2026-08-25：任务栏 Widgets 残影、安装器残留与终端字符度量尾项修复
+
+用户澄清 Widgets 的空白常驻图标位于**开始按钮旁的应用任务区**，不是通知区域。审计锁定 ElevenDE Shell 的 `refresh_tasks()` 后确认，它遍历 `_NET_CLIENT_LIST` 时只排除了 desktop 类型窗口，完全没有读取 EWMH `_NET_WM_STATE_SKIP_TASKBAR`。Qt 的 Widgets 面板与长期存在的边缘触发窗口以 Tool/utility 身份发布该状态，因此会被错误渲染为无标题的应用按钮；右键“关闭”该按钮实际终止 Widgets 后，也连带失去边缘触发。Lindows 新增构建时补丁，在创建任务项前读取 `_NET_WM_STATE` 并跳过 `_NET_WM_STATE_SKIP_TASKBAR` 窗口；同时保持 Widgets 进程与边缘热区存在，而不是通过关闭它消除图标。补丁已按全部 ElevenDE Shell 补丁的实际顺序应用到锁定源码，并使用项目 `Makefile` 成功编译 `elevende-shell`。
+
+安装后“安装系统”残留的清理脚本还暴露两项实际的 `/bin/sh` 可移植性错误：dash 不支持花括号路径展开，且不支持 `read -d`。前者使 `/usr/share` 和 `/usr/local` 下的明确 Calamares/Install System 文件未被删除；后者使 `/home/*/.local/share/applications` 与 `/root/.local/share/applications` 的清理失效。修复后脚本使用显式路径，并以 POSIX 循环遍历标准用户 XDG 应用目录，文件名规则同时覆盖 `install-lindows` 与 `lindows-installer` 两种顺序；隔离夹具已验证系统级、用户级、中文 Name/Comment 命名的安装器条目都会删除，普通应用条目仍保留。
+
+终端截图显示的是整行字符单元被拉宽，而非当前可见的方框字符。原因是将 `Noto Sans Mono CJK SC` 作为 XTerm 主字体，令 ASCII 也继承 CJK 双宽字形度量。修复将 XTerm 主字体改回 `DejaVu Sans Mono`，将 `Noto Sans CJK SC` 与文泉驿作为 Fontconfig 回退，并显式令 `XTerm*cjkWidth: false`，使 East Asian Ambiguous 字符不放大普通字符格。使用待构建 `local.conf` 覆盖 Bookworm 展开根目录的隔离 Fontconfig 查询确认：`DejaVu Sans Mono:lang=zh-cn` 的主字体是 DejaVu Sans Mono，而中文 `U+4E2D/U+6587` 回退到 Noto Sans CJK SC。终端入口继续固定黑色背景并传入同一 CJK 宽度策略。
+
+以上是源码、脚本、隔离文件系统与 C 编译层面的证据，**不是**健康虚拟机里的鼠标交互验收。当前宿主的存储/EXT4 故障仍令本地 ISO 与 QEMU 长程结果不可信；必须在 GitHub Actions 的干净构建完成后，再由健康 VM 实测 Widgets 关闭后边缘触发、安装后 All Apps、以及中英文终端实际排版，方可确认这三个尾项的运行时通过。
+
+## 2026-08-25：真实安装后安装器残留的二次修复
+
+用户在成功安装后的真实系统中仍观察到两项残留：桌面上有“安装 Lindows”，开始菜单“所有程序”仍有“安装系统”。这直接否定了此前只扫描应用目录的清理方案作为安装后验收证据。本轮追踪发现，`/etc/skel/Desktop/Install Lindows.desktop` 会在账户创建时复制到用户桌面，而原有清理器没有扫描 `Desktop`；此外，上游安装器入口可因名称、路径或本地 XDG 副本差异绕过仅依赖物理删除的菜单清理。
+
+修复将入口清理集中到新的 `/usr/local/libexec/lindows-installed-cleanup`：它会删除系统应用目录、`/etc/skel`、既有用户的 `.local/share/applications`、`Desktop` 及中文“桌面”目录中的 Live 安装器条目。Calamares 的目标后处理会在用户创建后立即调用该程序；另有 `lindows-installed-cleanup.service` 在已安装系统的 `graphical.target`、`lindows-elevende-display.service` 之前再执行一次，以覆盖首次会话前的延后复制。Live 系统不启用该服务，故仍保留 Live 环境中的安装器。
+
+为了在文件意外残留时仍不展示，ElevenDE All Apps 的构建补丁同时把 `lindows-installer`、Calamares、`install-system`、Debian installer 及“安装 Lindows/安装系统”中英文名称加入负过滤。新的隔离目标根夹具已经实际运行清理器，确认系统级、用户级和桌面级条目被删除而普通应用保留；服务可在完整目标根中成功启用；带新增过滤的 Shell 也已用项目 Makefile 成功编译。以上仍不是用户真实安装后桌面验收，下一次 ISO 必须由健康 VM 落盘安装验证。

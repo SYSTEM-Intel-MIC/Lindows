@@ -1,0 +1,15 @@
+#!/bin/sh
+# Perform an explicit ElevenDE logout.  Only this helper creates the marker
+# consumed by lindows-elevende-display; a crash or RandR-related Openbox exit
+# is never treated as logout and therefore cannot restart the desktop loop.
+set -eu
+
+: "${HOME:?Lindows logout requires HOME}"
+marker="$HOME/.cache/lindows-elevende-logout"
+mkdir -p "${marker%/*}"
+printf '%s\n' "$$" > "$marker"
+
+# End the current Openbox session.  The display launcher keeps Xorg on VT7,
+# clears the marker, and starts a fresh elevende-session which shows the native
+# credential gate.  This is a real session transition, not merely a lock screen.
+exec openbox --exit

@@ -1,8 +1,19 @@
 polkit.addRule(function(action, subject) {
-    // The Live session is disposable. Permit its dedicated installer user to
-    // elevate the installer entry without a second password dialog.
+    // The Live session is disposable. Permit its dedicated user only for the
+    // fixed-function Lindows dispatcher; never grant a blanket pkexec bypass.
     if (subject.user == "user" &&
-        action.id == "org.freedesktop.policykit.exec") {
+        action.id == "im.system-intel-mic.lindows.privileged-action") {
+        return polkit.Result.YES;
+    }
+
+    // ElevenDE's native display service does not create a conventional active
+    // logind seat, so GUI-agent-based AUTH_SELF can fail silently after install.
+    // Permit only the Calamares-created sudo user to run this one fixed-function
+    // dispatcher.  The dispatcher has no arbitrary-command branch: it accepts
+    // exactly suspend, poweroff, reboot, restore-only BSOD, or no-reboot update.
+    // All other actions and users retain the policy defaults (auth_admin).
+    if (subject.isInGroup("sudo") &&
+        action.id == "im.system-intel-mic.lindows.privileged-action") {
         return polkit.Result.YES;
     }
 });

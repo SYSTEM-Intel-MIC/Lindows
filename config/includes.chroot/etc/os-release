@@ -1,7 +1,7 @@
-PRETTY_NAME="Lindows 1.0 (Bookworm)"
+PRETTY_NAME="Lindows 2.0 (Bookworm)"
 NAME="Lindows"
-VERSION_ID="1.0"
-VERSION="1.0 (Bookworm)"
+VERSION_ID="2.0"
+VERSION="2.0 (Bookworm)"
 VERSION_CODENAME=bookworm
 ID=lindows
 ID_LIKE=debian

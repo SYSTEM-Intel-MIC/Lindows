@@ -1,0 +1,21 @@
+! Lindows Chinese-first X11 typography.  ElevenDE merges this file before
+! starting its shell, SAS daemon and Openbox clients.
+Xft.dpi: 96
+Xft.antialias: true
+Xft.hinting: true
+Xft.hintstyle: hintslight
+Xft.rgba: rgb
+XTerm*faceName: DejaVu Sans Mono
+XTerm*faceSize: 11
+! Ambiguous East Asian punctuation remains single-column; ideographs keep
+! their natural double-width while ASCII stays compact.
+XTerm*cjkWidth: false
+XTerm*background: #000000
+XTerm*foreground: #f2f2f2
+XTerm*cursorColor: #ffffff
+xterm*faceName: DejaVu Sans Mono
+xterm*faceSize: 11
+xterm*cjkWidth: false
+xterm*background: #000000
+xterm*foreground: #f2f2f2
+xterm*cursorColor: #ffffff

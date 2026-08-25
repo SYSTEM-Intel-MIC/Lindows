@@ -1,9 +1,0 @@
-#!/bin/sh
-# auto/build — live-build 构建钩子
-# 注意：这里不要调用 lb build！
-# live-build 会在此脚本返回后自动执行真正的构建。
-# 我们的配置全在 auto/config 和 config/ 目录中。
-
-set -e
-echo "[auto/build] live-build will now execute the actual build."
-exit 0

@@ -1,0 +1,136 @@
+#!/bin/sh
+# Native systemd display/session launcher for ElevenDE on Lindows.
+# Xorg must retain the system service's VT ownership; the ElevenDE client is
+# nevertheless always run as the selected unprivileged session user.
+set -eu
+
+if [ -d /run/live ]; then
+    /usr/local/sbin/lindows-live-session-init
+fi
+USER_NAME="$(sed -n '1p' /etc/lindows/session-user 2>/dev/null || true)"
+[ -n "$USER_NAME" ] || USER_NAME=user
+id "$USER_NAME" >/dev/null 2>&1 || {
+    echo "Lindows ElevenDE session user does not exist: $USER_NAME" >&2
+    exit 1
+}
+HOME_DIR="$(getent passwd "$USER_NAME" | awk -F: '{print $6}')"
+[ -n "$HOME_DIR" ] && [ -d "$HOME_DIR" ] || {
+    echo "Lindows ElevenDE session home is not available for $USER_NAME" >&2
+    exit 1
+}
+
+# Avoid a root desktop: create one temporary server cookie owned by the actual
+# user, start the server from the service-held VT, then run ElevenDE as that
+# user.  This is the same privilege split a display manager normally provides,
+# without retaining an external greeter or LightDM dependency.
+AUTH_FILE="$HOME_DIR/.Xauthority-lindows"
+X_SOCKET=/tmp/.X11-unix/X0
+# xauth needs to create temporary lock files alongside the authority database,
+# so the database must live in the unprivileged user's writable home directory,
+# not in root-owned /run.
+rm -f "$AUTH_FILE" "$AUTH_FILE-c" "$AUTH_FILE-l" "$X_SOCKET"
+install -o "$USER_NAME" -g "$(id -gn "$USER_NAME")" -m 0600 /dev/null "$AUTH_FILE"
+COOKIE="$(mcookie)"
+runuser -u "$USER_NAME" -- xauth -f "$AUTH_FILE" add :0 . "$COOKIE"
+
+/usr/lib/xorg/Xorg :0 vt7 -nolisten tcp -keeptty -auth "$AUTH_FILE" \
+    >>/var/log/lindows-elevende-xorg.log 2>&1 &
+X_PID=$!
+cleanup() {
+    kill "$X_PID" 2>/dev/null || true
+    wait "$X_PID" 2>/dev/null || true
+    rm -f "$AUTH_FILE" "$AUTH_FILE-c" "$AUTH_FILE-l"
+}
+trap cleanup EXIT INT TERM
+
+ready=0
+for attempt in $(seq 1 100); do
+    if [ -S "$X_SOCKET" ]; then
+        ready=1
+        break
+    fi
+    if ! kill -0 "$X_PID" 2>/dev/null; then
+        wait "$X_PID" || true
+        echo "Lindows Xorg exited before display :0 was ready; see /var/log/lindows-elevende-xorg.log" >&2
+        exit 1
+    fi
+    sleep 0.1
+done
+[ "$ready" = 1 ] || {
+    echo "Lindows Xorg did not expose display :0" >&2
+    exit 1
+}
+
+# Xorg owns VT7, but a system service does not automatically make that VT
+# active. Record every request in the journal: Live console initialization can
+# briefly select another VT after Xorg first becomes ready.
+activate_x_vt() {
+    local phase="$1" before after result
+    before="$(cat /sys/class/tty/tty0/active 2>/dev/null || printf 'unknown')"
+    if /usr/bin/chvt 7; then
+        result=ok
+    else
+        result=failed
+    fi
+    after="$(cat /sys/class/tty/tty0/active 2>/dev/null || printf 'unknown')"
+    logger -t lindows-elevende-display "VT7 activation ${phase}: ${before} -> ${after} (${result})"
+}
+
+if command -v chvt >/dev/null 2>&1; then
+    activate_x_vt xorg-ready
+fi
+
+LIVE_FLAG=0
+[ -d /run/live ] && LIVE_FLAG=1
+LOGOUT_MARKER="$HOME_DIR/.cache/lindows-elevende-logout"
+mkdir -p "$HOME_DIR/.cache"
+chown "$USER_NAME:$(id -gn "$USER_NAME")" "$HOME_DIR/.cache"
+
+start_elevende_session() {
+    rm -f "$LOGOUT_MARKER"
+    runuser -u "$USER_NAME" -- env \
+        HOME="$HOME_DIR" USER="$USER_NAME" LOGNAME="$USER_NAME" \
+        DISPLAY=:0 XAUTHORITY="$AUTH_FILE" \
+        XDG_VTNR=7 XDG_SEAT=seat0 XDG_SESSION_TYPE=x11 \
+        XDG_CURRENT_DESKTOP=ElevenDE XDG_SESSION_DESKTOP=ElevenDE \
+        LINDOWS_LIVE_SESSION="$LIVE_FLAG" \
+        /usr/local/bin/elevende-session &
+    SESSION_PID=$!
+}
+
+start_elevende_session
+
+# Virtual-console initialization can still activate a text VT after Xorg first
+# becomes ready. Re-assert the graphical VT through the
+# complete bounded startup burst. This remains a root display-service action,
+# never an ElevenDE or Live-user privilege.
+if command -v chvt >/dev/null 2>&1; then
+    sleep 1
+    activate_x_vt session-started
+    sleep 3
+    activate_x_vt session-initialized
+    sleep 8
+    activate_x_vt console-settled
+    sleep 15
+    activate_x_vt desktop-stable
+fi
+
+while :; do
+    wait "$SESSION_PID"
+    session_rc=$?
+    if [ -f "$LOGOUT_MARKER" ]; then
+        # Only lindows-logout creates this marker.  Keep Xorg and its VT alive,
+        # then launch a fresh native login session; resolution changes and
+        # crashes never enter this branch.
+        rm -f "$LOGOUT_MARKER"
+        logger -t lindows-elevende-display "explicit logout; restarting native ElevenDE session"
+        sleep 1
+        start_elevende_session
+        continue
+    fi
+    logger -t lindows-elevende-display "unexpected ElevenDE session exit (${session_rc})"
+    # Restart=on-failure ignores a zero exit.  An unmarked session ending is
+    # never a clean display-service shutdown, so normalize it to failure.
+    [ "$session_rc" -ne 0 ] || session_rc=1
+    exit "$session_rc"
+done

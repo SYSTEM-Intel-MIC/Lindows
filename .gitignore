@@ -14,3 +14,25 @@ config/includes.chroot/opt/lindows/packages/
 # editor and OS state
 .DS_Store
 *.swp
+
+# generated staging hooks and Python bytecode
+/config/hooks/*.chroot
+scripts/__pycache__/
+
+# live-build local products and transient download state
+/binary/
+/chroot/
+/binary.contents
+/binary.packages
+/chroot.headers
+/chroot.packages.install
+/chroot.packages.live
+/config/bootstrap
+/config/chroot
+/config/common
+/config/source
+/config/binary
+/wget-log*
+/config/archives/lindows.list.*
+/config/bootloaders/isolinux/*.c32
+/config/bootloaders/isolinux/isolinux.bin

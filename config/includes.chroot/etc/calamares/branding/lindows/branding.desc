@@ -13,8 +13,8 @@ strings:
     shortProductName: Lindows
     version: "1.0"
     shortVersion: "1.0"
-    versionedName: Lindows 1.0
-    shortVersionedName: Lindows 1.0
+    versionedName: Lindows 2.0
+    shortVersionedName: Lindows 2.0
     bootloaderEntryName: Lindows
     productUrl: https://github.com/SYSTEM-Intel-MIC/lindows
     supportUrl: https://github.com/SYSTEM-Intel-MIC/lindows/issues

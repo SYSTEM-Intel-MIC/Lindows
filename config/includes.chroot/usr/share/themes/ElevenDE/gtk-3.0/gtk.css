@@ -1,0 +1,50 @@
+/* Lindows desktop integration layer: third-party GTK control normalization. */
+@define-color lindows_surface #f7f8fb;
+@define-color lindows_surface_alt #ffffff;
+@define-color lindows_text #1b1b1f;
+@define-color lindows_border #d9dce4;
+@define-color lindows_accent #0067c0;
+@define-color lindows_accent_hover #005fb0;
+
+window, dialog, .background {
+  background-color: @lindows_surface;
+  color: @lindows_text;
+}
+button, entry, combobox button, textview, treeview.view, list, .view {
+  border-radius: 6px;
+  border: 1px solid @lindows_border;
+  background-color: @lindows_surface_alt;
+  color: @lindows_text;
+}
+button {
+  padding: 6px 12px;
+  transition: 120ms ease-out;
+}
+button:hover {
+  background-color: #eef4fc;
+  border-color: #a9c9ec;
+}
+button:active, button.suggested-action {
+  background-color: @lindows_accent;
+  border-color: @lindows_accent;
+  color: white;
+}
+entry:focus, textview:focus, treeview.view:focus {
+  border-color: @lindows_accent;
+  box-shadow: 0 0 0 1px @lindows_accent;
+}
+progressbar trough {
+  min-height: 5px;
+  border-radius: 99px;
+  background-color: #dde3ec;
+}
+progressbar progress {
+  min-height: 5px;
+  border-radius: 99px;
+  background-color: @lindows_accent;
+}
+headerbar {
+  background-color: @lindows_surface_alt;
+  border-bottom: 1px solid @lindows_border;
+  box-shadow: none;
+}

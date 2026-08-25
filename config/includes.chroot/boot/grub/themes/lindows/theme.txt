@@ -1,15 +1,18 @@
-# Lindows GRUB theme — SYSTEM-Intel-MIC
-desktop-image: "/boot/grub/themes/lindows/lindows-aurora-wallpaper.png"
-desktop-color: #06152f
-title-text: "Lindows"
-title-color: #eaf6ff
-boot_menu {
+# Lindows 2.0 GRUB theme — SYSTEM-Intel-MIC
+# All assets are resolved relative to this descriptor so the same theme works
+# on the Live ISO and after Calamares installs it to /boot/grub.
+desktop-image: "lindows-aurora-wallpaper.png"
+desktop-color: "#06152f"
+title-text: "Lindows 2.0"
+title-color: "#eaf6ff"
+
++ boot_menu {
   left = 8%
   top = 34%
   width = 45%
   height = 42%
-  item_color = #dceeff
-  selected_item_color = #ffffff
+  item_color = "#dceeff"
+  selected_item_color = "#ffffff"
   item_height = 36
   item_padding = 12
 }

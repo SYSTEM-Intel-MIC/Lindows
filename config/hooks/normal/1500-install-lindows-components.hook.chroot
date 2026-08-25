@@ -12,21 +12,216 @@ sha256sum -c SHA256SUMS
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y --no-install-recommends ./*.deb
+
+# elevende.deb supplies this path, so write the Lindows terminal profile only
+# after package installation.  Otherwise the DEB restores its old CJK primary
+# face and dark-grey palette over config/includes.chroot during live-build.
+install -d /etc/X11/Xresources.d
+cat > /etc/X11/Xresources.d/elevende <<'EOF'
+! Lindows X11 typography and terminal profile.
+Xft.dpi: 96
+Xft.antialias: true
+Xft.hinting: true
+Xft.hintstyle: hintslight
+Xft.rgba: rgb
+XTerm*utf8: true
+XTerm*locale: true
+XTerm*renderFont: true
+XTerm*faceName: DejaVu Sans Mono
+XTerm*faceSize: 11
+! Keep East Asian ambiguous-width punctuation single-column.  Real CJK
+! ideographs remain double-width while ASCII character cells stay compact.
+XTerm*cjkWidth: false
+XTerm*preeditType: None
+XTerm*allowWindowOps: true
+XTerm*saveLines: 5000
+XTerm*background: #000000
+XTerm*foreground: #f2f2f2
+XTerm*cursorColor: #ffffff
+xterm*faceName: DejaVu Sans Mono
+xterm*faceSize: 11
+xterm*cjkWidth: false
+xterm*background: #000000
+xterm*foreground: #f2f2f2
+xterm*cursorColor: #ffffff
+EOF
+
 # RunBox resolves commands through PATH; provide the Windows-compatible command name.
 if [ -x /usr/local/bin/linux-regedit ]; then
     ln -sfn /usr/local/bin/linux-regedit /usr/local/bin/regedit
 fi
 
+# Desktop integration layer: these declarative overrides preserve each package's
+# own executable while giving ElevenDE one session adapter and one Win11 icon
+# namespace for the desktop, Start menu, taskbar and custom title bars.
+install -d /usr/local/share/applications
+# ElevenDE does not read Icon= from desktop files on the desktop surface.  Copy
+# the official icon installed by the locked Microsoft Edge DEB into the same
+# native theme namespace used by the shell, preserving the microsoft-edge name.
+for size in 16 22 24 32 48 64 96 128; do
+    edge_icon="/usr/share/icons/hicolor/${size}x${size}/apps/microsoft-edge.png"
+    if [ -f "$edge_icon" ]; then
+        install -Dm644 "$edge_icon" \
+            "/usr/local/share/elevende-shell/icons/${size}x${size}/apps/microsoft-edge.png"
+    fi
+done
+write_component_entry() {
+    file="$1"; name="$2"; name_zh="$3"; icon="$4"; exec_line="$5"; categories="$6"
+    cat > "/usr/local/share/applications/$file" <<EOF
+[Desktop Entry]
+Type=Application
+Name=$name
+Name[zh_CN]=$name_zh
+Comment=$name
+Exec=$exec_line
+Icon=$icon
+Terminal=false
+StartupNotify=true
+Categories=$categories
+EOF
+}
+ADAPTER=/usr/local/libexec/lindows-component-launch
+write_component_entry linux-pcmanager.desktop "Lindows PC Manager" "Lindows 电脑管家" linux-pcmanager "$ADAPTER linux-pcmanager" "System;Utility;"
+write_component_entry linux-regedit.desktop "注册表编辑器" "注册表编辑器" linux-regedit "$ADAPTER linux-regedit" "System;Settings;"
+write_component_entry lindows-device-manager.desktop "Device Manager" "设备管理器" lindows-device-manager "$ADAPTER devmgr" "System;Settings;HardwareSettings;"
+write_component_entry lindows-store.desktop "Lindows Store" "Lindows 商店" lindows-store "$ADAPTER lindows-store" "System;Settings;"
+write_component_entry copilot-for-linux.desktop "Copilot for Linux" "Linux Copilot" copilot-for-linux "$ADAPTER /usr/local/bin/lindows-copilot %U" "Utility;"
+write_component_entry peazip.desktop "PeaZip" "PeaZip 压缩软件" peazip "$ADAPTER peazip %F" "Utility;Archiving;"
+write_component_entry lindows-activation-watermark.desktop "Activate Lindows" "激活 Lindows" lindows-activation-watermark "$ADAPTER lindows-activation-watermark" "Settings;"
+write_component_entry lindows-troubleshooting.desktop "Lindows Troubleshooting" "Lindows 疑难解答" lindows-troubleshooting "$ADAPTER lindows-troubleshooting" "Settings;System;"
+write_component_entry lindows-uac-preview.desktop "User Account Control Preview" "用户账户控制预览" lindows-uac-preview "$ADAPTER lindows-uac-preview" "System;"
+write_component_entry lindows-defender.desktop "Lindows Defender" "Lindows Defender" lindows-defender "$ADAPTER lindows-defender" "System;"
+write_component_entry lindows-sticky-keys.desktop "Sticky Keys" "粘滞键" lindows-sticky-keys "$ADAPTER lindows-sticky-keys" "Settings;Accessibility;"
+write_component_entry lindows-widgets.desktop "Lindows Widgets" "Lindows 小组件" lindows-widgets "$ADAPTER lindows-widgets" "Utility;"
+write_component_entry lindows-windowshit.desktop "Lindows Commands" "Lindows 命令" lindows-windowshit "$ADAPTER lindows-windowshit" "System;Utility;"
+write_component_entry lindows-winsat.desktop "Lindows Experience Index" "Lindows 体验指数" lindows-winsat "$ADAPTER winsat" "System;Utility;"
+write_component_entry lindows-update-preview.desktop "Lindows Update Preview" "Lindows 更新预览" lindows-update-preview "$ADAPTER lindows-update-preview" "Settings;System;"
+write_component_entry lindows-winver.desktop "About Lindows" "关于 Lindows" lindows-winver "$ADAPTER winver" "System;Settings;"
+write_component_entry feedbackhub.desktop "Feedback Hub" "反馈中心" feedbackhub "$ADAPTER feedbackhub" "Utility;"
+# The Lindows demo is an unprivileged X11 preview; Escape returns to ElevenDE.
+write_component_entry lindows-bsod.desktop "Lindows Blue Screen Demo" "Lindows 蓝屏演示" lindows-bsod "$ADAPTER /usr/local/bin/lindows-bsod-demo" "System;"
+# Desktop shortcuts use the same entries as All Apps, avoiding duplicate
+# launchers and preserving the package-provided official Edge icon.
+install -d /etc/skel/Desktop
+install -Dm644 /usr/local/share/applications/linux-regedit.desktop /etc/skel/Desktop/注册表编辑器.desktop
+# The Windows-command compatibility package is not a terminal emulator.  Make
+# the requested Terminal entry launch XTerm directly, with an explicit black
+# palette and a compact DejaVu primary face with Fontconfig CJK fallback,
+# instead of inheriting upstream dark-grey resources or mapping the shortcut to
+# a one-line helper.
+cat > /usr/local/share/applications/xterm.desktop <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Terminal
+Name[zh_CN]=终端
+Comment=Lindows terminal
+Exec=xterm -fa "DejaVu Sans Mono" -fs 11 -xrm "XTerm*cjkWidth:false" -xrm "XTerm*background:#000000" -xrm "XTerm*foreground:#f2f2f2" -xrm "XTerm*cursorColor:#ffffff"
+Icon=utilities-terminal
+Terminal=false
+Categories=System;TerminalEmulator;
+StartupWMClass=XTerm
+EOF
+install -Dm644 /usr/local/share/applications/xterm.desktop /etc/skel/Desktop/终端.desktop
+cat > /etc/skel/Desktop/Microsoft\ Edge.desktop <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Microsoft Edge
+Name[zh_CN]=Microsoft Edge
+Comment=Microsoft Edge web browser
+Exec=/usr/bin/microsoft-edge --password-store=basic %U
+Icon=microsoft-edge
+Terminal=false
+StartupNotify=true
+Categories=Network;WebBrowser;
+EOF
+# Override the package desktop entry as well as the desktop shortcut.  The
+# local applications directory is scanned before /usr/share/applications, so
+# Start, taskbar launch and the desktop all use the same password-store policy.
+install -Dm644 /etc/skel/Desktop/Microsoft\ Edge.desktop \
+    /usr/local/share/applications/microsoft-edge.desktop
+# The local entries above are the single Lindows source of truth.  Remove
+# package-provided alternatives whose different Exec values would otherwise
+# bypass Shell de-duplication and appear as duplicate All Apps icons.
+rm -f /usr/share/applications/lindows-sticky-keys.desktop \
+      /usr/share/applications/lindows-store.desktop \
+      /usr/share/applications/lindows-defender.desktop \
+      /usr/share/applications/lindows-uac-preview.desktop \
+      /usr/share/applications/lindows-update-preview.desktop \
+      /usr/share/applications/lindows-widgets.desktop \
+      /usr/share/applications/widget-panel.desktop \
+      /usr/share/applications/activate-linux.desktop \
+      /usr/share/applications/lxqt-leave.desktop \
+      /usr/share/applications/lxqt-lockscreen.desktop \
+      /usr/share/applications/lxqt-logout.desktop \
+      /usr/share/applications/lxqt-reboot.desktop \
+      /usr/share/applications/lxqt-shutdown.desktop \
+      /usr/share/applications/lxqt-suspend.desktop \
+      /usr/share/applications/picom.desktop \
+      /usr/share/applications/lxqt-config-session.desktop \
+      /usr/share/applications/kbd-layout-viewer5.desktop \
+      /usr/share/applications/calamares.desktop \
+      /usr/share/applications/install-system.desktop
+
+# Never expose standalone session/power commands as ordinary applications.  The
+# Start and SAS power controls remain the only supported routes, so command
+# entries cannot bypass their confirmation/authentication policy or appear as
+# malformed Chinese duplicates in All Apps.
+is_system_command_entry() {
+    desktop_file="$1"
+    grep -Eqi \
+        '^(Name|Name\[zh_CN\]|GenericName|Comment)=.*(Shutdown|Shut Down|Power Off|Restart|Reboot|Log ?Out|Logoff|Logout|Suspend|Sleep|Hibernate|Lock Screen|Lock Session|关机|重启|重新启动|注销|登出|睡眠|挂起|休眠|锁屏|锁定)' \
+        "$desktop_file" || \
+    grep -Eqi \
+        '^Exec=.*(systemctl[[:space:]]+(poweroff|reboot|suspend|hibernate)|loginctl[[:space:]]+(poweroff|reboot|suspend|hibernate|terminate-session|lock-session)|lxqt-leave|xfce4-session-logout|mate-session-save|openbox[[:space:]]+--exit|gnome-session-quit|(^|[[:space:]])(poweroff|reboot|shutdown|logout|logoff|xscreensaver-command|dm-tool)[[:space:]])' \
+        "$desktop_file"
+}
+for desktop_file in /usr/share/applications/*.desktop /usr/local/share/applications/*.desktop; do
+    [ -f "$desktop_file" ] || continue
+    # Keep the curated, safe Lindows entries even if a future translation adds
+    # an English word such as "Update" or "Lock" to a comment.
+    case "$(basename "$desktop_file")" in
+        lindows-update-preview.desktop|lindows-bsod.desktop|microsoft-edge.desktop|linux-regedit.desktop|lindows-device-manager.desktop)
+            continue
+            ;;
+    esac
+    if is_system_command_entry "$desktop_file"; then
+        echo "Removing unsupported All Apps system-command entry: $desktop_file"
+        rm -f "$desktop_file"
+    fi
+done
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database /usr/share/applications
+    update-desktop-database /usr/local/share/applications
+fi
+
+# Widgets are a Lindows desktop surface, not a utility the user must manually
+# launch once before its own per-user preference is written.
+install -Dm644 /dev/stdin /etc/xdg/autostart/lindows-widgets.desktop <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Lindows Widgets
+Name[zh_CN]=Windows 小组件
+Exec=/usr/local/libexec/lindows-component-launch /usr/bin/lindows-widgets
+OnlyShowIn=ElevenDE;
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+EOF
+
 # Packages are installed; keeping their archives only increases the ISO.
 rm -rf "$PKG_DIR"
 mkdir -p /usr/share/lindows
 cat > /usr/share/lindows/components.txt <<'EOF'
-Lindows bundled components
-- ElevenDE 3.5.1
-- LinuxPCManager (fixed source revision)
-- linux-regedit (fixed source revision)
-- lindows-bsod (fixed source revision; never enabled as a service)
-- lindows-device-manager (fixed source revision)
+Lindows 2.0 bundled components
+- ElevenDE 3.5.1 (published fixed source revision)
+- LinuxPCManager, linux-regedit, lindows-bsod and lindows-device-manager
+- Lindows Store, with its APT-backed package workflow and ElevenDE integration
 - Copilot for Linux 1.0.0 amd64 DEB (SHA-256 verified; no API key)
 - PeaZip 11.2.0 Qt6 official DEB
+- Activate Lindows watermark and Troubleshooting
+- User Account Control Preview (PAM integration disabled)
+- Lindows Defender, Sticky Keys and Widgets
+- Namespaced Windows command compatibility tools and Windows Experience Index
+- Windows Update Preview (non-destructive; no automatic upgrade or reboot)
+- About Lindows (winver) and Feedback Hub
+- windowsuninstaller/mmclinux is not bundled: its requested public source was unavailable during audit
 EOF

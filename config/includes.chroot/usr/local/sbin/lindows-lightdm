@@ -1,5 +1,0 @@
-#!/bin/sh
-set -eu
-
-/usr/local/sbin/lindows-live-session-init
-exec /usr/sbin/lightdm "$@"

@@ -1,0 +1,13 @@
+#!/bin/sh
+# Lindows Start-menu power bridge.  The command is intentionally allow-listed:
+# no shell evaluation, no sudo, no PAM mutation and no arbitrary elevation.
+# The fixed dispatcher has a dedicated polkit action, so an installed desktop
+# gets a visible auth_self prompt instead of a silent loginctl denial.
+set -eu
+case "${1:-}" in
+  suspend)  action=suspend ;;
+  poweroff) action=poweroff ;;
+  reboot)   action=reboot ;;
+  *) exit 64 ;;
+esac
+exec pkexec /usr/local/libexec/lindows-privileged-action "$action"

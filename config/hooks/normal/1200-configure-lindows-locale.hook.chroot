@@ -1,0 +1,13 @@
+#!/bin/sh
+# Build the Chinese-first locale before any ElevenDE/SAS session starts, and
+# refresh Fontconfig after installing the Noto CJK package from the package list.
+set -eu
+
+if [ -f /etc/locale.gen ]; then
+    sed -i 's/^[#[:space:]]*\(zh_CN\.UTF-8 UTF-8\)/\1/' /etc/locale.gen
+else
+    printf '%s\n' 'zh_CN.UTF-8 UTF-8' > /etc/locale.gen
+fi
+locale-gen zh_CN.UTF-8
+update-locale LANG=zh_CN.UTF-8 LC_CTYPE=zh_CN.UTF-8 LANGUAGE=zh_CN:zh
+fc-cache -f >/dev/null 2>&1 || true

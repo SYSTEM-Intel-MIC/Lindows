@@ -1,7 +1,8 @@
 # Lindows core: Debian Bookworm AMD64, minimal X11 and ElevenDE session
+# The Live user and graphical session are initialized by the Lindows-native
+# services below, rather than by live-config (which blocks basic.target while
+# executing generic late-userspace profiles on every boot).
 live-boot
-live-config
-live-config-systemd
 systemd-sysv
 libpam-systemd
 linux-image-amd64
@@ -14,16 +15,15 @@ firmware-misc-nonfree
 firmware-amd-graphics
 firmware-intel-sound
 
-# X11 session, light display manager and lightweight compositor/window manager
+# X11 session, ElevenDE native display service and lightweight compositor/window manager
 xorg
 xinit
+xauth
+kbd
 x11-xserver-utils
 x11-utils
 openbox
 picom
-lightdm
-lightdm-gtk-greeter
-light-locker
 xss-lock
 xterm
 dbus-x11
@@ -74,7 +74,7 @@ fcitx5-chinese-addons
 fcitx5-pinyin
 
 # Requested everyday applications
-firefox-esr
+# Microsoft Edge is installed from packages/binaries.lock.tsv.
 vlc
 eog
 calamares

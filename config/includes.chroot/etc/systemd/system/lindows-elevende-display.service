@@ -1,0 +1,34 @@
+[Unit]
+Description=Lindows ElevenDE native X11 display and session
+Documentation=file:///usr/share/doc/elevende/README.md
+# The Live desktop must not wait for network-online: NetworkManager may
+# legitimately keep that target pending while DHCP or WLAN probing runs. It is
+# enough for the service manager itself to be available; networking continues
+# asynchronously after ElevenDE becomes visible.
+After=systemd-user-sessions.service systemd-logind.service NetworkManager.service lindows-live-session-init.service
+Wants=lindows-live-session-init.service
+Conflicts=display-manager.service lightdm.service
+Before=graphical.target
+
+[Service]
+Type=simple
+# Keep Xorg and the display service on their dedicated VT. The service is
+# intentionally separate from the boot console so console hand-off cannot send
+# it SIGHUP during Live startup.
+TTYPath=/dev/tty7
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+StandardInput=tty
+StandardOutput=journal
+StandardError=journal
+ExecStart=/usr/local/sbin/lindows-elevende-display
+# Normal logout is handled inside the display launcher without tearing down
+# Xorg.  Restart the service only after an unexpected launcher/Xorg failure;
+# unconditional restart caused desktop and taskbar recreation during unstable
+# RandR transitions.
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=graphical.target

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>SYSTEM-Intel-MIC</vendor>
+  <vendor_url>https://github.com/SYSTEM-Intel-MIC/Lindows</vendor_url>
+  <icon_name>preferences-system</icon_name>
+  <action id="im.system-intel-mic.lindows.privileged-action">
+    <description>Lindows privileged desktop action</description>
+    <description xml:lang="zh_CN">Lindows 受限桌面操作</description>
+    <message>Authentication is required for this Lindows desktop action.</message>
+    <message xml:lang="zh_CN">此 Lindows 桌面操作需要认证。</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_self</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/local/libexec/lindows-privileged-action</annotate>
+    <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
+  </action>
+</policyconfig>
