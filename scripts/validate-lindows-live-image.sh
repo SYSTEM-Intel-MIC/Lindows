@@ -198,7 +198,7 @@ done
 
 # SAS footer power actions must share Start's fixed-function bridge rather
 # than attempting unprivileged systemctl calls that silently fail after install.
-if ! strings "$FULL_ROOT/usr/local/bin/sas-screen" | grep -q '/usr/local/bin/lindows-power-action'; then
+if ! strings -el "$FULL_ROOT/usr/local/bin/sas-screen" | grep -q '/usr/local/bin/lindows-power-action'; then
     echo 'final ISO SAS binary does not route power actions through Lindows bridge' >&2
     exit 1
 fi
