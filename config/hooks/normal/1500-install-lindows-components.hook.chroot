@@ -12,6 +12,40 @@ sha256sum -c SHA256SUMS
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y --no-install-recommends ./*.deb
+
+# elevende.deb supplies this path, so write the Lindows terminal profile only
+# after package installation.  Otherwise the DEB restores its old CJK primary
+# face and dark-grey palette over config/includes.chroot during live-build.
+install -d /etc/X11/Xresources.d
+cat > /etc/X11/Xresources.d/elevende <<'EOF'
+! Lindows X11 typography and terminal profile.
+Xft.dpi: 96
+Xft.antialias: true
+Xft.hinting: true
+Xft.hintstyle: hintslight
+Xft.rgba: rgb
+XTerm*utf8: true
+XTerm*locale: true
+XTerm*renderFont: true
+XTerm*faceName: DejaVu Sans Mono
+XTerm*faceSize: 11
+! Keep East Asian ambiguous-width punctuation single-column.  Real CJK
+! ideographs remain double-width while ASCII character cells stay compact.
+XTerm*cjkWidth: false
+XTerm*preeditType: None
+XTerm*allowWindowOps: true
+XTerm*saveLines: 5000
+XTerm*background: #000000
+XTerm*foreground: #f2f2f2
+XTerm*cursorColor: #ffffff
+xterm*faceName: DejaVu Sans Mono
+xterm*faceSize: 11
+xterm*cjkWidth: false
+xterm*background: #000000
+xterm*foreground: #f2f2f2
+xterm*cursorColor: #ffffff
+EOF
+
 # RunBox resolves commands through PATH; provide the Windows-compatible command name.
 if [ -x /usr/local/bin/linux-regedit ]; then
     ln -sfn /usr/local/bin/linux-regedit /usr/local/bin/regedit

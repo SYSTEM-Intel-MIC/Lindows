@@ -5,6 +5,13 @@
 # narrow Live-session sudo rule.
 set -euo pipefail
 
+validation_error() {
+    status="$?"
+    echo "final ISO validation failed near line $1" >&2
+    exit "$status"
+}
+trap 'validation_error $LINENO' ERR
+
 # Full squashfs verification must recreate device nodes and security xattrs;
 # run as root so permission warnings are not mistaken for data corruption.
 [ "$(id -u)" = 0 ] || {
