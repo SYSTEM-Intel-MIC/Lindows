@@ -216,7 +216,7 @@ jobs:
           sudo bash scripts/validate-lindows-live-image.sh "$ISO"
           sha256sum "$ISO" | tee Lindows-2.0-amd64-livecd.iso.sha256
           cat > Lindows-2.0-release-notes.md <<EOF
-          # Lindows 2.0 — LiveCD with installer
+          # Lindows 2.0 Preview — LiveCD with installer
 
           Build: ${GITHUB_RUN_NUMBER}
           Commit: ${GITHUB_SHA}
@@ -280,12 +280,14 @@ jobs:
           retention-days: 14
           compression-level: 0
 
-      - name: Publish Lindows ISO to GitHub Releases
-        if: github.ref == 'refs/heads/main'
+      - name: Publish Lindows 2.0 Preview Release
+        # Preview releases are produced only after the ISO verifier and both
+        # BIOS/UEFI QEMU smoke checks succeed on the integration branch.
+        if: github.ref == 'refs/heads/lindows-2.0-integration' && success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: lindows-2.0-build-${{ github.run_number }}
-          name: Lindows 2.0 Build ${{ github.run_number }}
+          tag_name: lindows-2.0-preview-${{ github.run_number }}
+          name: Lindows 2.0 Preview Build ${{ github.run_number }}
           body_path: Lindows-2.0-release-notes.md
           prerelease: true
           files: |
