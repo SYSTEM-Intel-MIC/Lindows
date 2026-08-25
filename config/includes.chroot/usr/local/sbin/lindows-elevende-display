@@ -82,23 +82,14 @@ fi
 
 LIVE_FLAG=0
 [ -d /run/live ] && LIVE_FLAG=1
-LOGOUT_MARKER="$HOME_DIR/.cache/lindows-elevende-logout"
-mkdir -p "$HOME_DIR/.cache"
-chown "$USER_NAME:$(id -gn "$USER_NAME")" "$HOME_DIR/.cache"
-
-start_elevende_session() {
-    rm -f "$LOGOUT_MARKER"
-    runuser -u "$USER_NAME" -- env \
-        HOME="$HOME_DIR" USER="$USER_NAME" LOGNAME="$USER_NAME" \
-        DISPLAY=:0 XAUTHORITY="$AUTH_FILE" \
-        XDG_VTNR=7 XDG_SEAT=seat0 XDG_SESSION_TYPE=x11 \
-        XDG_CURRENT_DESKTOP=ElevenDE XDG_SESSION_DESKTOP=ElevenDE \
-        LINDOWS_LIVE_SESSION="$LIVE_FLAG" \
-        /usr/local/bin/elevende-session &
-    SESSION_PID=$!
-}
-
-start_elevende_session
+runuser -u "$USER_NAME" -- env \
+    HOME="$HOME_DIR" USER="$USER_NAME" LOGNAME="$USER_NAME" \
+    DISPLAY=:0 XAUTHORITY="$AUTH_FILE" \
+    XDG_VTNR=7 XDG_SEAT=seat0 XDG_SESSION_TYPE=x11 \
+    XDG_CURRENT_DESKTOP=ElevenDE XDG_SESSION_DESKTOP=ElevenDE \
+    LINDOWS_LIVE_SESSION="$LIVE_FLAG" \
+    /usr/local/bin/elevende-session &
+SESSION_PID=$!
 
 # Virtual-console initialization can still activate a text VT after Xorg first
 # becomes ready. Re-assert the graphical VT through the
@@ -115,22 +106,11 @@ if command -v chvt >/dev/null 2>&1; then
     activate_x_vt desktop-stable
 fi
 
-while :; do
-    wait "$SESSION_PID"
-    session_rc=$?
-    if [ -f "$LOGOUT_MARKER" ]; then
-        # Openbox exited through the native Logout path.  Keep the X server and
-        # its VT alive, then start a fresh ElevenDE session so installed media
-        # returns to the native login gate instead of a black root window.
-        logger -t lindows-elevende-display "native logout; restarting ElevenDE session"
-        sleep 1
-        start_elevende_session
-        continue
-    fi
-    logger -t lindows-elevende-display "unexpected ElevenDE session exit (${session_rc})"
-    # Restart=on-failure deliberately ignores a zero exit status.  A session
-    # ending without the explicit lindows-logout marker is never a clean system
-    # shutdown, so normalize zero to failure instead of leaving a black X VT.
-    [ "$session_rc" -ne 0 ] || session_rc=1
-    exit "$session_rc"
-done
+wait "$SESSION_PID"
+session_rc=$?
+logger -t lindows-elevende-display "ElevenDE session exited (${session_rc})"
+# A stopped native session without an explicit system shutdown must be treated
+# as a failure.  Restart=on-failure can then recover the display once, while
+# normal SAS logout stays inside elevende-lock and never reaches this path.
+[ "$session_rc" -ne 0 ] || session_rc=1
+exit "$session_rc"

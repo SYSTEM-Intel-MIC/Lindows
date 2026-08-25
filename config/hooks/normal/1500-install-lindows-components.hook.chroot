@@ -98,7 +98,13 @@ rm -f /usr/share/applications/lindows-sticky-keys.desktop \
       /usr/share/applications/lindows-update-preview.desktop \
       /usr/share/applications/lindows-widgets.desktop \
       /usr/share/applications/widget-panel.desktop \
-      /usr/share/applications/activate-linux.desktop
+      /usr/share/applications/activate-linux.desktop \
+      /usr/share/applications/lxqt-leave.desktop \
+      /usr/share/applications/lxqt-lockscreen.desktop \
+      /usr/share/applications/lxqt-logout.desktop \
+      /usr/share/applications/lxqt-reboot.desktop \
+      /usr/share/applications/lxqt-shutdown.desktop \
+      /usr/share/applications/lxqt-suspend.desktop
 
 # Never expose standalone session/power commands as ordinary applications.  The
 # Start and SAS power controls remain the only supported routes, so command
@@ -107,10 +113,10 @@ rm -f /usr/share/applications/lindows-sticky-keys.desktop \
 is_system_command_entry() {
     desktop_file="$1"
     grep -Eqi \
-        '^(Name|Name\[zh_CN\]|GenericName|Comment)=.*(Shutdown|Shut Down|Power Off|Restart|Reboot|Log ?Out|Logoff|Logout|Suspend|Sleep|Hibernate|Lock Screen|Lock Session|关机|重启|注销|登出|睡眠|休眠|锁屏|锁定)' \
+        '^(Name|Name\[zh_CN\]|GenericName|Comment)=.*(Shutdown|Shut Down|Power Off|Restart|Reboot|Log ?Out|Logoff|Logout|Suspend|Sleep|Hibernate|Lock Screen|Lock Session|关机|重启|重新启动|注销|登出|睡眠|挂起|休眠|锁屏|锁定)' \
         "$desktop_file" || \
     grep -Eqi \
-        '^Exec=.*(systemctl[[:space:]]+(poweroff|reboot|suspend|hibernate)|loginctl[[:space:]]+(poweroff|reboot|suspend|hibernate|terminate-session|lock-session)|(^|[[:space:]])(poweroff|reboot|shutdown|logout|logoff|xscreensaver-command|dm-tool)[[:space:]])' \
+        '^Exec=.*(systemctl[[:space:]]+(poweroff|reboot|suspend|hibernate)|loginctl[[:space:]]+(poweroff|reboot|suspend|hibernate|terminate-session|lock-session)|lxqt-leave|xfce4-session-logout|mate-session-save|openbox[[:space:]]+--exit|gnome-session-quit|(^|[[:space:]])(poweroff|reboot|shutdown|logout|logoff|xscreensaver-command|dm-tool)[[:space:]])' \
         "$desktop_file"
 }
 for desktop_file in /usr/share/applications/*.desktop /usr/local/share/applications/*.desktop; do

@@ -101,6 +101,7 @@ python3 "$ROOT/scripts/patch-elevende-settings-display.py" "$ELEV_SRC/apps/setti
 python3 "$ROOT/scripts/patch-elevende-lindows-component-icons.py" "$ELEV_SRC/shell/main.c"
 python3 "$ROOT/scripts/patch-elevende-lindows-menu.py" "$ELEV_SRC/shell/main.c"
 python3 "$ROOT/scripts/patch-elevende-lindows-actions.py" "$ELEV_SRC/shell/main.c" "$ELEV_SRC/wm/sas-config.json"
+python3 "$ROOT/scripts/patch-elevende-sas-power.py" "$ELEV_SRC/SAS-for-Linux/src/saswindow.cpp"
 python3 "$ROOT/scripts/patch-elevende-session-policy.py" "$ELEV_SRC/session/elevende-session"
 python3 "$ROOT/scripts/patch-elevende-lock-auth.py" "$ELEV_SRC/shell/lock.c"
 python3 "$ROOT/scripts/patch-elevende-icon-overlay-staging.py" "$ELEV_SRC/build-deb.sh"

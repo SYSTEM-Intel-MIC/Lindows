@@ -5,4 +5,13 @@ polkit.addRule(function(action, subject) {
         action.id == "im.system-intel-mic.lindows.privileged-action") {
         return polkit.Result.YES;
     }
+
+    // The native ElevenDE display service does not create a display-manager
+    // logind session.  An installed account created by Calamares is placed in
+    // sudo and may authenticate as itself for this one fixed-function action;
+    // every other user still follows the policy defaults (auth_admin).
+    if (subject.isInGroup("sudo") &&
+        action.id == "im.system-intel-mic.lindows.privileged-action") {
+        return polkit.Result.AUTH_SELF;
+    }
 });

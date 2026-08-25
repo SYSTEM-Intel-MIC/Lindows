@@ -115,13 +115,19 @@ SESSION_SCRIPT="$WORK/elevende-session"
 cat_image_file 'usr/local/bin/elevende-session' "$SESSION_SCRIPT"
 grep -q 'LINDOWS-SESSION-POLICY' "$SESSION_SCRIPT"
 grep -q 'Live session bypasses the login gate' "$SESSION_SCRIPT"
-grep -q 'lindows-logout helper creates a new marker' "$SESSION_SCRIPT"
+grep -q 'single long-lived process' "$SESSION_SCRIPT"
+! grep -q 'lindows-elevende-logout' "$SESSION_SCRIPT"
+DISPLAY_LAUNCHER="$WORK/lindows-elevende-display"
+cat_image_file 'usr/local/sbin/lindows-elevende-display' "$DISPLAY_LAUNCHER"
+! grep -q 'while :' "$DISPLAY_LAUNCHER"
+! grep -q 'lindows-elevende-logout' "$DISPLAY_LAUNCHER"
 POWER_BRIDGE="$WORK/lindows-power-action"
 cat_image_file 'usr/local/bin/lindows-power-action' "$POWER_BRIDGE"
 grep -q '^exec pkexec /usr/local/libexec/lindows-privileged-action "\$action"$' "$POWER_BRIDGE"
 LOGOUT_HELPER="$WORK/lindows-logout"
 cat_image_file 'usr/local/bin/lindows-logout' "$LOGOUT_HELPER"
-grep -q 'lindows-elevende-logout' "$LOGOUT_HELPER"
+grep -q 'elevende-lock --login' "$LOGOUT_HELPER"
+! grep -q 'openbox --exit' "$LOGOUT_HELPER"
 PRIVILEGED_ACTION="$WORK/lindows-privileged-action"
 cat_image_file 'usr/local/libexec/lindows-privileged-action' "$PRIVILEGED_ACTION"
 grep -q -- '--restore' "$PRIVILEGED_ACTION"
@@ -134,6 +140,8 @@ grep -q '<allow_active>auth_self</allow_active>' "$POLKIT_POLICY"
 LIVE_POLKIT_RULE="$WORK/49-lindows-calamares.rules"
 cat_image_file 'etc/polkit-1/rules.d/49-lindows-calamares.rules' "$LIVE_POLKIT_RULE"
 grep -q 'im.system-intel-mic.lindows.privileged-action' "$LIVE_POLKIT_RULE"
+grep -q 'subject.isInGroup("sudo")' "$LIVE_POLKIT_RULE"
+grep -q 'polkit.Result.AUTH_SELF' "$LIVE_POLKIT_RULE"
 ! grep -q 'org.freedesktop.policykit.exec' "$LIVE_POLKIT_RULE"
 
 # Verify the installed, hook-mutated Calamares settings rather than source
@@ -183,9 +191,17 @@ for path in \
     usr/bin/winver \
     usr/bin/feedbackhub \
     usr/bin/lindows-activation-watermark \
-    usr/bin/lindows-ipconfig; do
+    usr/bin/lindows-ipconfig \
+    usr/local/bin/sas-screen; do
     require_path "$path"
 done
+
+# SAS footer power actions must share Start's fixed-function bridge rather
+# than attempting unprivileged systemctl calls that silently fail after install.
+if ! strings "$FULL_ROOT/usr/local/bin/sas-screen" | grep -q '/usr/local/bin/lindows-power-action'; then
+    echo 'final ISO SAS binary does not route power actions through Lindows bridge' >&2
+    exit 1
+fi
 
 # All Lindows third-party components resolve to curated Windows 11 aliases in
 # the ElevenDE icon theme.  Checking the final squashfs catches both package
@@ -214,10 +230,10 @@ fi
 for desktop_file in "$FULL_ROOT"/usr/share/applications/*.desktop "$FULL_ROOT"/usr/local/share/applications/*.desktop; do
     [ -f "$desktop_file" ] || continue
     if grep -Eqi \
-        '^(Name|Name\[zh_CN\]|GenericName|Comment)=.*(Shutdown|Shut Down|Power Off|Restart|Reboot|Log ?Out|Logoff|Logout|Suspend|Sleep|Hibernate|Lock Screen|Lock Session|关机|重启|注销|登出|睡眠|休眠|锁屏|锁定)' \
+        '^(Name|Name\[zh_CN\]|GenericName|Comment)=.*(Shutdown|Shut Down|Power Off|Restart|Reboot|Log ?Out|Logoff|Logout|Suspend|Sleep|Hibernate|Lock Screen|Lock Session|关机|重启|重新启动|注销|登出|睡眠|挂起|休眠|锁屏|锁定)' \
         "$desktop_file" || \
        grep -Eqi \
-        '^Exec=.*(systemctl[[:space:]]+(poweroff|reboot|suspend|hibernate)|loginctl[[:space:]]+(poweroff|reboot|suspend|hibernate|terminate-session|lock-session)|(^|[[:space:]])(poweroff|reboot|shutdown|logout|logoff|xscreensaver-command|dm-tool)[[:space:]])' \
+        '^Exec=.*(systemctl[[:space:]]+(poweroff|reboot|suspend|hibernate)|loginctl[[:space:]]+(poweroff|reboot|suspend|hibernate|terminate-session|lock-session)|lxqt-leave|xfce4-session-logout|mate-session-save|openbox[[:space:]]+--exit|gnome-session-quit|(^|[[:space:]])(poweroff|reboot|shutdown|logout|logoff|xscreensaver-command|dm-tool)[[:space:]])' \
         "$desktop_file"; then
         echo "final ISO still exposes a forbidden system-command desktop entry: ${desktop_file#$FULL_ROOT/}" >&2
         exit 1

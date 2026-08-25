@@ -8,6 +8,23 @@ if len(sys.argv) != 2:
 path = Path(sys.argv[1])
 text = path.read_text()
 
+old_zh_parse = '''            } else if (!strncmp(p, "Name[", 5) && strncmp(p, "Name[en", 7) &&
+                       !zh[0]) {
+                char *eq = strchr(p, '=');
+                if (eq) snprintf(zh, sizeof zh, "%s", eq + 1);
+            } else if (!strncmp(p, "Exec=", 5) && !ex[0]) {
+'''
+new_zh_parse = '''            } else if ((!strncmp(p, "Name[zh_CN]=", 12) ||
+                        !strncmp(p, "Name[zh]=", 9)) && !zh[0]) {
+                char *eq = strchr(p, '=');
+                if (eq) snprintf(zh, sizeof zh, "%s", eq + 1);
+            } else if (!strncmp(p, "Exec=", 5) && !ex[0]) {
+'''
+if new_zh_parse not in text:
+    if old_zh_parse not in text:
+        raise SystemExit("Lindows menu zh_CN parse marker not found")
+    text = text.replace(old_zh_parse, new_zh_parse, 1)
+
 old_locale = '''        if (!nm[0] && zh[0]) snprintf(nm, sizeof nm, "%s", zh);
         if (!nm[0]) continue;
 '''
@@ -37,14 +54,20 @@ new_filter = '''        if (!ex[0]) continue;
         if (ci_strstr(ex, "systemctl poweroff") || ci_strstr(ex, "systemctl reboot") ||
             ci_strstr(ex, "systemctl suspend") || ci_strstr(ex, "loginctl terminate-session") ||
             ci_strstr(ex, "loginctl lock-session") || ci_strstr(ex, "gnome-session-quit") ||
+            ci_strstr(ex, "lxqt-leave") || ci_strstr(ex, "xfce4-session-logout") ||
+            ci_strstr(ex, "mate-session-save") || ci_strstr(ex, "openbox --exit") ||
             ci_strstr(ex, "lindows-power-action") || ci_strstr(ex, "shutdown") ||
             ci_strstr(ex, "poweroff") || ci_strstr(ex, "reboot") ||
             ci_strstr(ex, "suspend") || ci_strstr(ex, "logout") ||
             ci_strstr(ex, "lockscreen") || ci_strstr(de->d_name, "shutdown") ||
             ci_strstr(de->d_name, "restart") || ci_strstr(de->d_name, "reboot") ||
             ci_strstr(de->d_name, "logout") || ci_strstr(de->d_name, "logoff") ||
-            ci_strstr(de->d_name, "lockscreen") || !strcmp(nm, "注销") ||
-            !strcmp(nm, "关机") || !strcmp(nm, "重启") || !strcmp(nm, "睡眠") ||
+            ci_strstr(de->d_name, "lockscreen") || ci_strstr(de->d_name, "lxqt-leave") ||
+            ci_strstr(de->d_name, "lxqt-shutdown") || ci_strstr(de->d_name, "lxqt-reboot") ||
+            ci_strstr(de->d_name, "lxqt-suspend") || ci_strstr(de->d_name, "lxqt-lock") ||
+            !strcmp(nm, "注销") ||
+            !strcmp(nm, "关机") || !strcmp(nm, "重启") || !strcmp(nm, "重新启动") ||
+            !strcmp(nm, "睡眠") || !strcmp(nm, "挂起") ||
             !strcmp(nm, "锁屏") || !strcmp(nm, "锁定") ||
             ci_strstr(nm, "shutdown") || ci_strstr(nm, "restart") ||
             ci_strstr(nm, "reboot") || ci_strstr(nm, "logout") ||

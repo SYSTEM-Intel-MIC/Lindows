@@ -19,6 +19,10 @@ done
 if [ -d /etc/skel ]; then
     cp -a /etc/skel/. /home/user/ 2>/dev/null || true
 fi
+# Widgets are started exactly once from /etc/xdg/autostart.  Old releases may
+# have left an upstream user-level copy that starts a second process and makes
+# its edge hot zone repeatedly open during resolution changes.
+rm -f /home/user/.config/autostart/widget-panel.desktop
 install -d -m 0755 /etc/lindows
 printf '%s\n' user > /etc/lindows/session-user
 chown -R user:user /home/user

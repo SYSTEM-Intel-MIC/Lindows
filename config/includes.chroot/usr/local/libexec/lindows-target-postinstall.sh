@@ -35,6 +35,10 @@ fi
 
 # Installed systems must not keep the Live-only installer entry.
 find /home /root /etc/skel -type f \( -iname '*install*lindows*.desktop' -o -iname 'install-debian.desktop' -o -iname 'debian-installer.desktop' -o -iname 'debian-installer-launcher.desktop' \) -delete 2>/dev/null || true
+# Keep one Widgets process: Lindows supplies the system XDG autostart entry.
+# Remove an upstream per-user copy which older media created after a settings
+# save and which then duplicated edge strips on every subsequent login.
+find /home /root /etc/skel -type f -path '*/.config/autostart/widget-panel.desktop' -delete 2>/dev/null || true
 rm -f /usr/share/applications/lindows-installer.desktop \
       /usr/share/applications/debian-installer.desktop \
       /usr/share/applications/debian-installer-launcher.desktop \

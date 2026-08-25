@@ -50,3 +50,13 @@ GitHub Actions 运行 `32686179382`（提交 `023b6b9`，分支 `lindows-2.0-int
 BSOD、Windows Update Preview 和 Start 电源改为经由固定功能的 `lindows-privileged-action` 请求单一 polkit 动作。该调度器只允许 `bsod`、`update-preview`、`suspend`、`poweroff`、`reboot`；BSOD 硬编码 `--restore`，更新预览硬编码 `--no-reboot`，并且没有任意参数传递。Live 用户仅对此单一动作免密，安装系统保留 active-user `auth_self` 的可见认证提示，替代此前只在 Live 工作的宽泛 `pkexec` 例外和安装后裸 `loginctl` 无反馈路径。
 
 真实运行时结论仍受限：我下载运行 `32730512489` 的 ISO 工件时，ZIP 自检通过但解压后 ISO 的 SHA-256 与 CI 附带值不一致；随后宿主内核记录了 `vda` I/O 错误与 EXT4 错误。损坏 ISO 已被删除，未用于 QEMU 或安装验证。因此本轮只能确认最终 CI 构建、成品内容校验和 BIOS/UEFI 启动冒烟通过；**尚未宣称**分辨率热重排、Widgets 热区、SAS 注销/电源、安装后 BSOD/更新、Copilot 首次启动或 Calamares 落盘安装已在健康虚拟机中交互通过。
+
+## 2026-08-25：以实际复现故障为基线的第二次稳定性修复
+
+用户在实际运行环境中稳定复现：Start“所有程序”残留系统电源/会话命令且中文混乱；终端中文错乱；安装后 BSOD 和 Windows Update Preview 失效；Start 与 SAS 的关机/重启无响应、SAS 注销无效；分辨率变化后桌面循环刷新、Widgets 反复打开、任务栏图标变空白。此前的 CI 启动截图与 squashfs 检查不能证明这些交互路径。
+
+本次修复移除了显示启动器的会话内注销重启循环，并将 SAS 注销改为在同一 X 会话显示 ElevenDE 原生 `elevende-lock --login` 登录门，不再退出 Openbox 或重建 Shell。Widgets 不再在首启/设置保存时写入第二个 `~/.config/autostart/widget-panel.desktop`；系统级入口成为唯一进程来源，边缘热区绑定单个 QScreen、只原地重定位，并在分辨率变化将热区移动到静止鼠标下时解除触发，直到用户真正离开再进入边缘。
+
+菜单解析只读取 `Name[zh_CN]`/`Name[zh]`，不再把任意其他语言翻译误当中文；物理清理及解析过滤均加入 Bookworm 实际出现的 `lxqt-leave` 关机、重启、注销、锁屏、挂起入口。终端 Fontconfig 与 Xresources 改用经 `fc-match` 验证存在的 `Noto Sans Mono CJK SC`，而非比例 CJK 字体。SAS 底部电源菜单与 Start 共用受限 `lindows-power-action`；安装后 sudo 用户也获得该单一固定功能调度器的 `AUTH_SELF` polkit 认证路径。最终 ISO 校验器新增这些结构性断言。
+
+这些改动已经通过锁定源码夹具、语法、字体族、入口过滤与权限边界检查；仍需在健康虚拟机中执行用户操作级回归，尤其是安装后 BSOD/更新、SAS 认证、实际关机/重启、分辨率切换和 Widgets 边缘触发。因此本记录不将这些项目表述为已交互通过。

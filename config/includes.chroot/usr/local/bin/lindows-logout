@@ -1,11 +1,15 @@
 #!/bin/sh
-# Mark an intentional ElevenDE logout before requesting the Openbox exit.
-# The display service consumes this per-user marker and starts a fresh native
-# login session on the existing X server.  No root action or loginctl session
-# termination is involved, so the action cannot strand the user at a root TTY.
+# SAS logout returns to ElevenDE's native password gate on the current X
+# session.  Do not exit Openbox: that tears down the shell/taskbar and forces
+# the display service to recreate an entire desktop, which is unsafe during
+# concurrent RandR events and previously produced a black root window.
 set -eu
 
-marker="$HOME/.cache/lindows-elevende-logout"
-mkdir -p "$(dirname "$marker")"
-touch "$marker"
-exec openbox --exit
+if [ -x /usr/local/bin/elevende-lock ]; then
+    exec /usr/local/bin/elevende-lock --login
+fi
+
+# A missing native login gate is a configuration failure, not a reason to
+# terminate the session and strand the user on a console.
+printf '%s\n' 'Lindows logout: ElevenDE login gate is unavailable' >&2
+exit 1
