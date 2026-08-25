@@ -80,3 +80,11 @@ BSOD、Windows Update Preview 和 Start 电源改为经由固定功能的 `lindo
 终端截图显示的是整行字符单元被拉宽，而非当前可见的方框字符。原因是将 `Noto Sans Mono CJK SC` 作为 XTerm 主字体，令 ASCII 也继承 CJK 双宽字形度量。修复将 XTerm 主字体改回 `DejaVu Sans Mono`，将 `Noto Sans CJK SC` 与文泉驿作为 Fontconfig 回退，并显式令 `XTerm*cjkWidth: false`，使 East Asian Ambiguous 字符不放大普通字符格。使用待构建 `local.conf` 覆盖 Bookworm 展开根目录的隔离 Fontconfig 查询确认：`DejaVu Sans Mono:lang=zh-cn` 的主字体是 DejaVu Sans Mono，而中文 `U+4E2D/U+6587` 回退到 Noto Sans CJK SC。终端入口继续固定黑色背景并传入同一 CJK 宽度策略。
 
 以上是源码、脚本、隔离文件系统与 C 编译层面的证据，**不是**健康虚拟机里的鼠标交互验收。当前宿主的存储/EXT4 故障仍令本地 ISO 与 QEMU 长程结果不可信；必须在 GitHub Actions 的干净构建完成后，再由健康 VM 实测 Widgets 关闭后边缘触发、安装后 All Apps、以及中英文终端实际排版，方可确认这三个尾项的运行时通过。
+
+## 2026-08-25：真实安装后安装器残留的二次修复
+
+用户在成功安装后的真实系统中仍观察到两项残留：桌面上有“安装 Lindows”，开始菜单“所有程序”仍有“安装系统”。这直接否定了此前只扫描应用目录的清理方案作为安装后验收证据。本轮追踪发现，`/etc/skel/Desktop/Install Lindows.desktop` 会在账户创建时复制到用户桌面，而原有清理器没有扫描 `Desktop`；此外，上游安装器入口可因名称、路径或本地 XDG 副本差异绕过仅依赖物理删除的菜单清理。
+
+修复将入口清理集中到新的 `/usr/local/libexec/lindows-installed-cleanup`：它会删除系统应用目录、`/etc/skel`、既有用户的 `.local/share/applications`、`Desktop` 及中文“桌面”目录中的 Live 安装器条目。Calamares 的目标后处理会在用户创建后立即调用该程序；另有 `lindows-installed-cleanup.service` 在已安装系统的 `graphical.target`、`lindows-elevende-display.service` 之前再执行一次，以覆盖首次会话前的延后复制。Live 系统不启用该服务，故仍保留 Live 环境中的安装器。
+
+为了在文件意外残留时仍不展示，ElevenDE All Apps 的构建补丁同时把 `lindows-installer`、Calamares、`install-system`、Debian installer 及“安装 Lindows/安装系统”中英文名称加入负过滤。新的隔离目标根夹具已经实际运行清理器，确认系统级、用户级和桌面级条目被删除而普通应用保留；服务可在完整目标根中成功启用；带新增过滤的 Shell 也已用项目 Makefile 成功编译。以上仍不是用户真实安装后桌面验收，下一次 ISO 必须由健康 VM 落盘安装验证。

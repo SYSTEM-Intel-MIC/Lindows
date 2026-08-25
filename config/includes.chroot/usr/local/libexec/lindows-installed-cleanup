@@ -1,0 +1,76 @@
+#!/bin/sh
+# Remove Live-only installer launchers from an installed Lindows target.
+# This is deliberately idempotent: Calamares invokes it after account creation,
+# and the installed-only systemd unit invokes it again before the first ElevenDE
+# session in case a user Desktop or XDG directory is populated later.
+set -eu
+
+remove_installer_entry() {
+    entry="$1"
+    [ -f "$entry" ] || return 0
+
+    case "$(basename "$entry")" in
+        *install*lindows*.desktop|*lindows*install*.desktop|install-system.desktop|calamares.desktop|debian-installer*.desktop)
+            rm -f "$entry"
+            return 0
+            ;;
+    esac
+
+    if grep -qiE '^(Name|Name\[[^]]+\]|Comment)=.*(Install Lindows|Install System|安装 Lindows|安装系统)' "$entry" 2>/dev/null; then
+        rm -f "$entry"
+    fi
+}
+
+clean_desktop_dir() {
+    desktop_dir="$1"
+    [ -d "$desktop_dir" ] || return 0
+    for entry in "$desktop_dir"/*.desktop; do
+        remove_installer_entry "$entry"
+    done
+}
+
+# Explicit package paths cover entries with generic display names.  The scans
+# below additionally cover translated, vendor-renamed and user-level copies.
+rm -f /usr/share/applications/lindows-installer.desktop \
+      /usr/share/applications/debian-installer.desktop \
+      /usr/share/applications/debian-installer-launcher.desktop \
+      /usr/share/applications/install-system.desktop \
+      /usr/share/applications/calamares.desktop \
+      /usr/local/share/applications/lindows-installer.desktop \
+      /usr/local/share/applications/debian-installer.desktop \
+      /usr/local/share/applications/debian-installer-launcher.desktop \
+      /usr/local/share/applications/install-system.desktop \
+      /usr/local/share/applications/calamares.desktop \
+      /etc/xdg/autostart/calamares-desktop-icon.desktop \
+      /etc/xdg/autostart/lindows-desktop-trust.desktop \
+      '/etc/skel/Desktop/Install Lindows.desktop' \
+      '/etc/skel/Desktop/Install System.desktop' \
+      '/etc/skel/Desktop/安装 Lindows.desktop' \
+      '/etc/skel/Desktop/安装系统.desktop'
+
+for app_dir in /usr/share/applications /usr/local/share/applications /etc/skel/.local/share/applications; do
+    [ -d "$app_dir" ] || continue
+    for entry in "$app_dir"/*.desktop; do
+        remove_installer_entry "$entry"
+    done
+done
+
+# `Desktop` is used by Calamares' skeleton and ElevenDE.  Check common localized
+# desktop folder names as well so a user-created Chinese desktop cannot retain a
+# Live installer shortcut.
+for home_dir in /home/* /root /etc/skel; do
+    [ -d "$home_dir" ] || continue
+    clean_desktop_dir "$home_dir/Desktop"
+    clean_desktop_dir "$home_dir/桌面"
+
+    app_dir="$home_dir/.local/share/applications"
+    [ -d "$app_dir" ] || continue
+    for entry in "$app_dir"/*.desktop; do
+        remove_installer_entry "$entry"
+    done
+done
+
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database /usr/share/applications >/dev/null 2>&1 || true
+    update-desktop-database /usr/local/share/applications >/dev/null 2>&1 || true
+fi

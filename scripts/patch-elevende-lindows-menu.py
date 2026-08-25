@@ -51,7 +51,14 @@ old_filter = '''        if (!ex[0]) continue;
 new_filter = '''        if (!ex[0]) continue;
         /* Keep power and session commands in ElevenDE's dedicated Start/SAS
          * controls, never as duplicate unsafe entries under All apps. */
-        if (ci_strstr(ex, "systemctl poweroff") || ci_strstr(ex, "systemctl reboot") ||
+        if (ci_strstr(ex, "lindows-installer") || ci_strstr(ex, "calamares") ||
+            ci_strstr(ex, "install-system") || ci_strstr(ex, "debian-installer") ||
+            ci_strstr(de->d_name, "lindows-installer") ||
+            ci_strstr(de->d_name, "install-system") || ci_strstr(de->d_name, "calamares") ||
+            ci_strstr(de->d_name, "debian-installer") ||
+            !strcmp(nm, "安装 Lindows") || !strcmp(nm, "安装系统") ||
+            ci_strstr(nm, "install lindows") || ci_strstr(nm, "install system") ||
+            ci_strstr(ex, "systemctl poweroff") || ci_strstr(ex, "systemctl reboot") ||
             ci_strstr(ex, "systemctl suspend") || ci_strstr(ex, "loginctl terminate-session") ||
             ci_strstr(ex, "loginctl lock-session") || ci_strstr(ex, "gnome-session-quit") ||
             ci_strstr(ex, "lxqt-leave") || ci_strstr(ex, "xfce4-session-logout") ||

@@ -95,6 +95,8 @@ require_path 'etc/calamares/branding/lindows/show.qml'
 require_path 'etc/calamares/branding/lindows/stylesheet.qss'
 require_path 'etc/calamares/modules/lindows-postinstall.conf'
 require_path 'usr/local/libexec/lindows-target-postinstall.sh'
+require_path 'usr/local/libexec/lindows-installed-cleanup'
+require_path 'etc/systemd/system/lindows-installed-cleanup.service'
 require_path 'usr/local/bin/lindows-installer'
 require_path 'usr/local/sbin/lindows-live-session-init'
 require_path 'usr/local/sbin/lindows-elevende-display'
@@ -144,10 +146,19 @@ grep -q 'systemctl --no-wall reboot' "$PRIVILEGED_ACTION"
 TARGET_POSTINSTALL="$WORK/lindows-target-postinstall"
 cat_image_file 'usr/local/libexec/lindows-target-postinstall.sh' "$TARGET_POSTINSTALL"
 ! grep -qE 'pkill[[:space:]]+-USR1[[:space:]]+-x[[:space:]]+elevende-shell' "$TARGET_POSTINSTALL"
-! grep -qE 'read[[:space:]]+-r[[:space:]]+-d' "$TARGET_POSTINSTALL"
-! grep -qE '/usr/(local/)?share/applications/\{' "$TARGET_POSTINSTALL"
-grep -q 'for home_dir in /home/\* /root; do' "$TARGET_POSTINSTALL"
-grep -q 'lindows-installer.desktop' "$TARGET_POSTINSTALL"
+grep -q '/usr/local/libexec/lindows-installed-cleanup' "$TARGET_POSTINSTALL"
+grep -q 'systemctl enable lindows-installed-cleanup.service' "$TARGET_POSTINSTALL"
+INSTALLED_CLEANUP="$WORK/lindows-installed-cleanup"
+cat_image_file 'usr/local/libexec/lindows-installed-cleanup' "$INSTALLED_CLEANUP"
+! grep -qE 'read[[:space:]]+-r[[:space:]]+-d' "$INSTALLED_CLEANUP"
+! grep -qE '/usr/(local/)?share/applications/\{' "$INSTALLED_CLEANUP"
+grep -q 'for home_dir in /home/\* /root /etc/skel; do' "$INSTALLED_CLEANUP"
+grep -q 'clean_desktop_dir "\$home_dir/Desktop"' "$INSTALLED_CLEANUP"
+grep -q "'/etc/skel/Desktop/Install Lindows.desktop'" "$INSTALLED_CLEANUP"
+CLEANUP_SERVICE="$WORK/lindows-installed-cleanup.service"
+cat_image_file 'etc/systemd/system/lindows-installed-cleanup.service' "$CLEANUP_SERVICE"
+grep -q '^Before=lindows-elevende-display.service$' "$CLEANUP_SERVICE"
+grep -q '^ExecStart=/usr/local/libexec/lindows-installed-cleanup$' "$CLEANUP_SERVICE"
 POLKIT_POLICY="$WORK/lindows-privileged-action.policy"
 cat_image_file 'usr/share/polkit-1/actions/im.system-intel-mic.lindows.privileged-action.policy' "$POLKIT_POLICY"
 grep -q 'id="im.system-intel-mic.lindows.privileged-action"' "$POLKIT_POLICY"

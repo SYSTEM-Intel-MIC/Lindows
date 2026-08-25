@@ -113,7 +113,10 @@ EOF
 # Lindows-branded Calamares entry remains the only graphical installer entry.
 for dir in /usr/share/applications /etc/xdg/autostart /etc/skel/Desktop; do
     [ -d "$dir" ] || continue
-    find "$dir" -maxdepth 1 -type f -name '*.desktop' -print0 2>/dev/null | while IFS= read -r -d '' entry; do
+    # This hook runs under dash, whose `read` lacks -d.  The direct glob is
+    # POSIX-safe and still covers all package-provided desktop filenames.
+    for entry in "$dir"/*.desktop; do
+        [ -f "$entry" ] || continue
         if grep -qiE '(^Name(\[[^]]+\])?=.*(Install Debian|Debian Installer|Install System|安装系统))|debian-installer-launcher|debian-installer.desktop|install-system.desktop' "$entry" 2>/dev/null; then
             rm -f "$entry"
         fi

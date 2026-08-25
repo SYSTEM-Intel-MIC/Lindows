@@ -30,54 +30,19 @@ install -Dm644 /dev/stdin /etc/lindows/session-user <<EOF
 $installed_account
 EOF
 if command -v systemctl >/dev/null 2>&1; then
+    systemctl enable lindows-installed-cleanup.service >/dev/null 2>&1 || true
     systemctl enable lindows-elevende-display.service >/dev/null 2>&1 || true
 fi
 
-# Installed systems must not keep any Live-only installer entry.  The prior
-# cleanup scanned only /usr/share, while the final integration layer writes
-# overrides to /usr/local and some session initializers create per-user XDG
-# entries; scan all of those concrete menu roots by filename and localized name.
-rm -f /usr/share/applications/lindows-installer.desktop \
-      /usr/share/applications/debian-installer.desktop \
-      /usr/share/applications/debian-installer-launcher.desktop \
-      /usr/share/applications/install-system.desktop \
-      /usr/share/applications/calamares.desktop \
-      /usr/local/share/applications/lindows-installer.desktop \
-      /usr/local/share/applications/debian-installer.desktop \
-      /usr/local/share/applications/debian-installer-launcher.desktop \
-      /usr/local/share/applications/install-system.desktop \
-      /usr/local/share/applications/calamares.desktop \
-      /etc/xdg/autostart/calamares-desktop-icon.desktop \
-      /etc/xdg/autostart/lindows-desktop-trust.desktop
-remove_installer_entry() {
-    entry="$1"
-    [ -f "$entry" ] || return 0
-    case "$(basename "$entry")" in
-        *install*lindows*.desktop|*lindows*install*.desktop|install-system.desktop|calamares.desktop|debian-installer*.desktop)
-            rm -f "$entry"
-            return 0
-            ;;
-    esac
-    if grep -qiE '^(Name|Name\[[^]]+\]|Comment)=.*(Install Lindows|Install System|安装 Lindows|安装系统)' "$entry" 2>/dev/null; then
-        rm -f "$entry"
-    fi
-}
-for app_dir in /usr/share/applications /usr/local/share/applications /etc/skel/.local/share/applications; do
-    [ -d "$app_dir" ] || continue
-    for entry in "$app_dir"/*.desktop; do
-        remove_installer_entry "$entry"
-    done
-done
-# dash (the /bin/sh used by Calamares) has no `read -d`, so do not use a
-# NUL-delimited find pipeline here.  Each local account has the standard XDG
-# applications directory directly below its home directory.
-for home_dir in /home/* /root; do
-    app_dir="$home_dir/.local/share/applications"
-    [ -d "$app_dir" ] || continue
-    for entry in "$app_dir"/*.desktop; do
-        remove_installer_entry "$entry"
-    done
-done
+# Calamares executes this after the selected account exists.  Use the shared
+# installed-only cleaner so the system menu, inherited skeleton Desktop and
+# already-created user Desktop/XDG directories are handled as one operation.
+if [ -x /usr/local/libexec/lindows-installed-cleanup ]; then
+    /usr/local/libexec/lindows-installed-cleanup
+else
+    echo 'Lindows: installed-only installer cleanup helper is missing' >&2
+    exit 1
+fi
 
 # Keep one Widgets process: Lindows supplies the system XDG autostart entry.
 # Remove an upstream per-user copy which older media created after a settings

@@ -1,0 +1,11 @@
+[Unit]
+Description=Remove Live installer launchers from installed Lindows
+After=local-fs.target
+Before=lindows-elevende-display.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/lindows-installed-cleanup
+
+[Install]
+WantedBy=graphical.target
